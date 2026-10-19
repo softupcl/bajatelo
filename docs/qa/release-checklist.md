@@ -20,8 +20,8 @@
 | DMG monta y contiene Bajatelo.app | ✅ passed | `hdiutil attach`: volumen con `Bajatelo.app` + `Applications`; Info.plist verificado (`CFBundleName=Bajatelo`, `CFBundleIdentifier=com.softnext.bajatelo`); `hdiutil detach` limpio |
 | Arquitectura | ✅ passed (aarch64) | `file`: `Mach-O 64-bit executable arm64`; Mac Intel requiere build (instrucciones en README §3) |
 | Sin rutas absolutas del equipo en el binario | ✅ passed | `otool -L` sin referencias a rutas de usuario; código usa `env::temp_dir` + `app_data_dir` (grep: 0 coincidencias `/Users/`) |
-| NSIS Windows | not-tested | requiere host Windows; comando y requisitos documentados en README §3 |
-| DEB/AppImage Linux | not-tested | requiere host Linux; requisitos documentados (webkit2gtk-4.1, etc.) |
+| NSIS Windows | ✅ passed (generado en CI runner nativo, verificado como NSIS válido) → **ejecución en Windows real: not-tested** | run `39313558162`; asset `Bajatelo_0.1.0_x64-setup.exe` (2,2 MB) descargado + `file` OK |
+| DEB/AppImage Linux | ✅ passed (generados en runner nativo, tipos verificados) → **prueba en escritorio Linux real: not-tested** | run `39313558162`; `deb` 3,6 MB + `AppImage` 78 MB |
 | Firma/notarización macOS | outside-MVP | requiere certificado del usuario (licensing-notes §4) |
 
 ## 3 · Motores: distribución y actualización (enunciado fase 7, punto 3)
@@ -62,6 +62,7 @@
 
 | Item | Estado |
 |---|---|
-| Publicar o firmar artefactos | pendiente de autorización explícita del usuario (AGENTS.md §2) |
+| Publicar o firmar artefactos | **repo público creado y pushed (2026-10-19, autorizado por el usuario): github.com/softupcl/bajatelo**; release v0.1.0 generado en CI como **draft** (no visible); firmarla sigue pendiente de certificado |
 | Descarga real con contenido autorizado | not-tested — checklist manual §2 (requiere red del usuario) |
-| Verificación NSIS/DEB/AppImage | not-tested — solo posible en hosts con esos SO |
+| Ejecución del .exe en un Windows real | not-tested — para cumplimiento pleno del enunciado (AGENTS.md "efectiva en la plataforma reclamada") |
+| Publicar el draft release | manual del usuario |

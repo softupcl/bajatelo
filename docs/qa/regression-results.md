@@ -136,6 +136,19 @@ Feedback con captura: con MP3 aparecía la calidad de vídeo (irrelevante) y con
 | 34 | Vitest / typecheck / lint | ✅ 11/11 · limpios | passed |
 | 35 | Playwright (+2 aserciones nuevas: selects visibles por formato, opciones 64–320 kbps, sin "1080p" con MP3) | ✅ **8/8** | passed |
 | 36 | `npm run tauri build -- --bundles dmg` | ✅ `Bajatelo_0.1.0_aarch64.dmg` (2,94 MiB) — instalador con el comportamiento corregido | passed |
+
+## Registro — CI oficial: release v0.1.0 en GitHub Actions (2026-10-19)
+
+Tag `v0.1.0` push → run `39313558162`: **3/3 jobs success** (windows-latest, macos-latest aarch64, ubuntu-22.04). Draft-release con 4 assets, descargados y verificados con `file`:
+
+| Asset | Tamaño | Verificación de tipo |
+|---|---|---|
+| `Bajatelo_0.1.0_x64-setup.exe` | 2,2 MB | PE32 + NSIS self-extracting (válido) |
+| `Bajatelo_0.1.0_aarch64.dmg` | 2,9 MB | imagen disco macOS arm64 |
+| `Bajatelo_0.1.0_amd64.deb` | 3,6 MB | Debian package 2.0 |
+| `Bajatelo_0.1.0_amd64.AppImage` | 78 MB | ELF x86-64 static-pie |
+
+Condición honesta (AGENTS.md): el `.exe` **no se ejecutó en Windows** aquí; generar/type-converted para NSIS en runner nativo. Publicación final del draft: manual, del usuario. Avisos cosmeticos del runner (Node 20 deprecation en actions, cola ARM64): no afectan el resultado.
 | 22 | `python3 scripts/third-party-notices.py` | ✅ `THIRD-PARTY-NOTICES.md` con 472 crates licenciados (0 desconocidas) + JS de runtime; reproducible y sin red | passed |
 | 23 | Suite tras los cambios de fase 7 (asistente diagnóstico, i18n, README, ignores) | ✅ cargo 67/67 · Vitest 11/11 · Playwright 7/7 · lint/typecheck limpios | passed |
 
