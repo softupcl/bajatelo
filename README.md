@@ -4,6 +4,19 @@ Aplicación de escritorio independiente (Tauri 2 + Vue 3 + TypeScript + Rust) pa
 
 > Proyecto guiado por `AGENTS.md` (metodología REA). La especificación aprobada vive en `docs/spec/`; la investigación de la aplicación de referencia, en `docs/rea/`.
 
+## ⬇️ Descargar Bajatelo (instaladores con motores embebidos: yt-dlp + FFmpeg)
+
+| SO                       | Instalador                                                                                                                   | Tamaño |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Windows x64              | [Bajatelo_0.1.1_x64-setup.exe](https://github.com/softupcl/bajatelo/releases/download/v0.1.1/Bajatelo_0.1.1_x64-setup.exe)   | 113 MB |
+| macOS (Apple Silicon)    | [Bajatelo_0.1.1_aarch64.dmg](https://github.com/softupcl/bajatelo/releases/download/v0.1.1/Bajatelo_0.1.1_aarch64.dmg)       | 85 MB  |
+| Linux (Debian/Ubuntu)    | [Bajatelo_0.1.1_amd64.deb](https://github.com/softupcl/bajatelo/releases/download/v0.1.1/Bajatelo_0.1.1_amd64.deb)           | 183 MB |
+| Linux (cualquier distro) | [Bajatelo_0.1.1_amd64.AppImage](https://github.com/softupcl/bajatelo/releases/download/v0.1.1/Bajatelo_0.1.1_amd64.AppImage) | 247 MB |
+
+- Los instaladores incluyen los **motores embebidos** (ver §2); no hace falta instalar yt-dlp/FFmpeg a mano.
+- Notas de la release completa y versiones nuevas: **[releases del proyecto](https://github.com/softupcl/bajatelo/releases)**.
+- Sin firma de código: Windows (SmartScreen) y macOS (GateKeeper) pedirán confirmación explícita; ver §6.
+
 ---
 
 ## Guía para el usuario final (instalador)
