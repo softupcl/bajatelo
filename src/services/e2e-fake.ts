@@ -1,4 +1,5 @@
 import type { Bridge } from './bridge'
+import { setBridge } from './bridge'
 import type { HistoryEntry, LocalMediaInfo, MediaInfo, Preferences, ToolDiagnostics } from '../types/contracts'
 
 /**
@@ -86,6 +87,6 @@ class E2eFake implements Bridge {
 /** Instalar el doble para Playwright (bajo su competencia). */
 export function installE2eBridge(): void {
   if (typeof localStorage !== 'undefined' && localStorage.getItem('rea-e2e') === '1') {
-    import('./bridge').then(({ setBridge }) => setBridge(new E2eFake()))
+    setBridge(new E2eFake())
   }
 }
