@@ -232,6 +232,14 @@ const guideSteps = computed(() =>
         />
         <span>{{ t('settings').prefs.removeFinished }}</span>
       </label>
+      <label class="pref-row">
+        <input
+          type="checkbox"
+          :checked="prefs.clipboardDetection"
+          @change="update({ clipboardDetection: ($event.target as HTMLInputElement).checked })"
+        />
+        <span>{{ t('settings').prefs.clipboardDetection }}</span>
+      </label>
     </form>
   </section>
 </template>

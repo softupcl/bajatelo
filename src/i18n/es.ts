@@ -31,6 +31,9 @@ export const es = {
     start: 'Descargar',
     starting: 'Iniciando…',
     audioBitrate: 'Calidad de audio (kbps)',
+    clipboardOffer: 'Hay una URL de vídeo en el portapapeles.',
+    clipboardUse: 'Analizar del portapapeles',
+    clipboardDismiss: 'Ignorar',
     pause: 'Pausar',
     resume: 'Reanudar',
     stop: 'Detener',
@@ -136,6 +139,7 @@ export const es = {
       rememberQuality: 'Recordar la última calidad elegida',
       rememberFormat: 'Recordar el último formato elegido',
       removeFinished: 'Retirar de la cola las descargas terminadas',
+      clipboardDetection: 'Detectar URLs de vídeo copiadas al portapapeles',
     },
   },
   about: {

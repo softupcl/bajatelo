@@ -172,6 +172,16 @@ Tras la corrección del run fallido 39322157746 (PowerShell no parseaba la sinta
 - Assets del draft v0.1.1 (descargados, `file` OK): `x64-setup.exe` **108 MB** (NSIS con motores), DMG 81 MB, DEB 175 MB, AppImage 236 MB.
 - Versión 0.1.1 sincronizada en `tauri.conf.json`/`Cargo.toml`/`package.json`; releaseBody con la oferta de código GPL.
 - Condición honesta: ejecutar el `.exe` en un Windows real / DEB-AppImage en escritorio Linux sigue `not-tested` (aquí se verifican generación, integridad y tipo).
+
+## Registro — X-02 portapapeles (post-MVP aprobado por REA D1) — 2026-10-19
+
+Primera función del backlog post-MVP: detección de URL compatible **copiada al portapapeles**, patrón observado en la referencia (REA D1, `mainwindow.cpp:409-422`):
+
+- Banner **no bloqueante** con disparo explícito (D-06): "Analizar del portapapeles" / "Ignorar" (se silencia el resto de la sesión)
+- Pre-chequeo de esquema http(s) en la UI; la validación autoritativa sigue en el backend (`analyze_url`); se omite si coincide con el campo o hay análisis en curso
+- Preferencia `clipboardDetection` (activa por defecto) con checkbox en Configuración (RF-09)
+- plugin oficial `tauri-plugin-clipboard-manager` con capability de solo-lectura (`allow-read-text`): mínimo privilegio, sin escritura de portapapeles
+- Verificación: cargo 75/75 · Vitest 11/11 · Playwright 8/8 · lint/typecheck limpio · DMG 81,38 MiB con motores + X-02 dentro
 | 22 | `python3 scripts/third-party-notices.py` | ✅ `THIRD-PARTY-NOTICES.md` con 472 crates licenciados (0 desconocidas) + JS de runtime; reproducible y sin red | passed |
 | 23 | Suite tras los cambios de fase 7 (asistente diagnóstico, i18n, README, ignores) | ✅ cargo 67/67 · Vitest 11/11 · Playwright 7/7 · lint/typecheck limpios | passed |
 

@@ -124,6 +124,9 @@ class E2eFake implements Bridge {
     /* no-op en E2E: sin red ni backend nativo */
     return { version: '2026.e2e', path: '/e2e/fake/engines/yt-dlp' }
   }
+  async readClipboardText(): Promise<string | null> {
+    return null
+  }
   async pickMediaFile(): Promise<string | null> {
     return '/e2e/fake/entrada.mp4'
   }
@@ -158,6 +161,7 @@ class E2eFake implements Bridge {
       rememberQuality: true,
       rememberFormat: true,
       removeFinishedFromQueue: false,
+      clipboardDetection: true,
       locale: 'es',
     }
   }

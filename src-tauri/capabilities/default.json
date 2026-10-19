@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Permisos mínimos para la ventana principal: núcleo de Tauri y apertura de enlaces. Sin ejecución arbitraria de comandos.",
   "windows": ["main"],
-  "permissions": ["core:default", "opener:default", "dialog:default"]
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default",
+    "clipboard-manager:allow-read-text"
+  ]
 }

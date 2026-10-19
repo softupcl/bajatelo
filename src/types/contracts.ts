@@ -179,6 +179,8 @@ export interface Preferences {
   rememberQuality: boolean
   rememberFormat: boolean
   removeFinishedFromQueue: boolean
+  /** X-02: detección de URL copiada al portapapeles (REA D1). */
+  clipboardDetection: boolean
   locale: string
 }
 

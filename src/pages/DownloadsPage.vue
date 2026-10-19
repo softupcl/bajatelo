@@ -208,12 +208,53 @@ const FORMAT_LABELS: Record<OutputFormat, string> = {
   original: 'Original (sin reconvertir)',
 }
 
+/** Regex de URL compatible para la portaviñeta del portapapeles (pre-chequeo;
+ *  la validación autoritativa sigue siendo el backend en analyze_url). */
+const URL_PATTERN = /^https?:\/\/\S+$/i
+
+const clipboardOffer = ref<string | null>(null)
+const clipboardDismissed = ref(false)
+
+async function checkClipboard(): Promise<void> {
+  clipboardOffer.value = null
+  if (clipboardDismissed.value || analyzing.value) return
+  try {
+    const prefs = await getBridge().getPreferences()
+    if (!prefs.clipboardDetection) return
+  } catch {
+    // Sin backend (E2E): se considera habilitada.
+  }
+  const text = await getBridge().readClipboardText()
+  if (text && URL_PATTERN.test(text.trim()) && text.trim() !== url.value.trim()) {
+    clipboardOffer.value = text.trim()
+  }
+}
+
+function useClipboardOffer(): void {
+  if (!clipboardOffer.value) return
+  url.value = clipboardOffer.value
+  clipboardOffer.value = null
+  void analyze()
+}
+
+function dismissClipboardOffer(): void {
+  clipboardOffer.value = null
+  clipboardDismissed.value = true
+}
+
+function onWindowFocus(): void {
+  void checkClipboard()
+}
+
 onMounted(async () => {
+  window.addEventListener('focus', onWindowFocus)
   await subscribeQueue()
   await refreshQueue()
+  void checkClipboard()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('focus', onWindowFocus)
   unlistenState?.()
   unlistenState = null
   unlistenProgress?.()
@@ -224,6 +265,16 @@ onBeforeUnmount(() => {
 <template>
   <section aria-labelledby="downloads-title">
     <h1 id="downloads-title">{{ t('downloads').title }}</h1>
+    <!-- X-02 (REA D1): oferta no bloqueante con disparo explícito (D-06). -->
+    <div v-if="clipboardOffer" role="status" class="clipboard-offer">
+      <span>{{ t('downloads').clipboardOffer }}</span>
+      <button type="button" @click="useClipboardOffer">
+        {{ t('downloads').clipboardUse }}
+      </button>
+      <button type="button" class="detail-toggle" @click="dismissClipboardOffer">
+        {{ t('downloads').clipboardDismiss }}
+      </button>
+    </div>
     <p class="lead">{{ t('downloads').intro }}</p>
 
     <div class="url-row">
@@ -355,6 +406,22 @@ onBeforeUnmount(() => {
 <style scoped>
 .url-row {
   margin: 12px 0 24px;
+}
+.clipboard-offer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-left: 4px solid #1a6ff3;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.clipboard-offer span {
+  flex: 1;
+  min-width: 200px;
 }
 .field-label {
   display: block;

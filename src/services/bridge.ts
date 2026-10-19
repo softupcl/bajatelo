@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import type {
   AnalysisOutcome,
   HistoryEntry,
@@ -42,6 +43,8 @@ export interface Bridge {
    * SHA-256; lo instala en el directorio de datos de la app.
    */
   updateYtdlp(): Promise<{ version: string; path: string }>
+  /** X-02: texto del portapapeles (REA D1); null si vacío o sin permiso. */
+  readClipboardText(): Promise<string | null>
   /** Conversión local (RF-06/C-20): selección nativa + FFprobe + FFmpeg. */
   pickMediaFile(): Promise<string | null>
   /** Diálogo nativo de guardado (RF-06): destino de la conversión. */
@@ -111,6 +114,15 @@ class TauriBridge implements Bridge {
   }
   async updateYtdlp(): Promise<{ version: string; path: string }> {
     return invoke<{ version: string; path: string }>('update_ytdlp')
+  }
+  async readClipboardText(): Promise<string | null> {
+    try {
+      const text = await readText()
+      return text && text.trim().length > 0 ? text : null
+    } catch {
+      // Sin permiso o sin backend nativo (E2E): degradación honesta a null.
+      return null
+    }
   }
   async getPreferences(): Promise<Preferences> {
     return invoke<Preferences>('get_preferences')
