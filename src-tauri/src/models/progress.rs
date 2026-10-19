@@ -58,7 +58,6 @@ fn size_to_bytes(text: &str) -> Option<i64> {
     None
 }
 
-/// Convierte velocidad "890.12KiB/s" a bytes/s.
 fn speed_to_bps(text: &str) -> Option<f64> {
     let (value_part, _) = text.split_once("/s")?;
     let value = value_part.trim();

@@ -44,6 +44,15 @@ export interface MediaInfo {
   qualities: QualityOption[]
 }
 
+/** Metadatos de un archivo local inspeccionado con FFprobe (RF-06). */
+export interface LocalMediaInfo {
+  container: string | null
+  videoCodec: string | null
+  audioCodec: string | null
+  durationSec: number | null
+  sizeBytes: number | null
+}
+
 /** Progreso (RF-04). Valores null = indeterminado visible; prohibido fabricarlos. */
 export interface ProgressInfo {
   percent: number | null

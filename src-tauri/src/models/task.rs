@@ -33,6 +33,7 @@ impl TaskState {
                 | (Inspecting, Ready)
                 | (Inspecting, Failed)
                 | (Inspecting, Cancelled)
+                | (Inspecting, Converting) // conversión local: sin selección entre probe y ejecución (C-20)
                 | (Ready, Downloading)
                 | (Ready, Cancelled)
                 | (Downloading, Converting)
@@ -53,6 +54,14 @@ impl TaskState {
     }
 }
 
+/// Tipo de tarea (D-13: el historial distingue descarga/conversión — RF-07).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskKind {
+    Download,
+    Convert,
+}
+
 /// Formato de salida del clon (RF-03) — sincronizado con `OutputFormat` de TS.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -62,19 +71,22 @@ pub enum OutputFormat {
     Original,
 }
 
-/// Tarea de descarga (docs/spec/data-model.md §2.1). Vive en memoria;
-/// el historial y la cola persistida usan representaciones derivadas.
+/// Tarea de descarga o conversión (docs/spec/data-model.md §2.1/§2.3).
+/// Vive en memoria; el historial y la cola persistida usan representaciones derivadas.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadTask {
     pub id: String,
+    pub kind: TaskKind,
     /// Número secuencial global para ordenar (la más reciente arriba, REA C4).
     pub seq: u64,
-    /// URL ya normalizada y validada (V-01).
-    pub source_url: String,
+    /// URL ya normalizada y validada (V-01). Null en conversiones locales.
+    pub source_url: Option<String>,
     pub portal: Option<String>,
     pub title: Option<String>,
     pub duration_sec: Option<f64>,
+    /// Archivo local de entrada (solo conversiones — RF-06).
+    pub input_path: Option<String>,
     pub qualities: Vec<QualityOption>,
     pub selected_quality_id: Option<String>,
     pub selected_format: Option<OutputFormat>,
@@ -103,6 +115,7 @@ mod tests {
         let legal = [
             (Queued, Inspecting), (Queued, Failed), (Queued, Cancelled),
             (Inspecting, Ready), (Inspecting, Failed), (Inspecting, Cancelled),
+            (Inspecting, Converting), // conversión local (C-20)
             (Ready, Downloading), (Ready, Cancelled),
             (Downloading, Converting), (Downloading, Completed), (Downloading, Failed),
             (Downloading, Cancelled), (Downloading, Pausing),

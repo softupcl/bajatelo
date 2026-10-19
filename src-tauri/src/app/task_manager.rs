@@ -20,7 +20,7 @@ use crate::models::history::{redact_url, HistoryEntry};
 use crate::models::media::{MediaInfo, QualityOption};
 use crate::models::prefs::ConflictPolicy;
 use crate::models::progress::{parse_motor_line, MotorLine, Phase, ProgressInfo};
-use crate::models::task::{DownloadTask, OutputFormat, TaskState};
+use crate::models::task::{DownloadTask, OutputFormat, TaskKind, TaskState};
 use crate::persistence::Store;
 use crate::services::{ffmpeg, tool_locator, ytdlp};
 
@@ -113,11 +113,13 @@ impl TaskManager {
         let id = self.new_id();
         let task = DownloadTask {
             id: id.clone(),
+            kind: TaskKind::Download,
             seq: self.next_seq.fetch_add(1, Ordering::Relaxed),
-            source_url: normalized_url.to_string(),
+            source_url: Some(normalized_url.to_string()),
             portal: None,
             title: None,
             duration_sec: None,
+            input_path: None,
             qualities: Vec::new(),
             selected_quality_id: None,
             selected_format: None,
@@ -318,6 +320,173 @@ impl TaskManager {
         Ok(())
     }
 
+    /// Inicia la conversión de un archivo local (C-20/RF-06). Crea la tarea,
+    /// resuelve el destino con la política (D-04) y lanza el runner.
+    /// Devuelve el id de la tarea; el progreso llega por `task://state`.
+    pub async fn start_conversion(
+        self: &Arc<Self>,
+        input_path: &str,
+        format: OutputFormat,
+        destination_base: &str,
+        policy: ConflictPolicy,
+    ) -> Result<String, TaskError> {
+        if !std::path::Path::new(input_path).is_file() {
+            return Err(TaskError::new(ErrorCode::Ec30, Some("el archivo de entrada no existe".into())));
+        }
+        // Para conversión local: MP4 y MP3 (el "Original" es de descargas).
+        let extension = match format {
+            OutputFormat::Mp4 => "mp4",
+            OutputFormat::Mp3 => "mp3",
+            OutputFormat::Original => {
+                return Err(TaskError::new(ErrorCode::Ec23, Some("Original no aplica a conversión local".into())))
+            }
+        }
+        .to_string();
+
+        let id = self.new_id();
+        let base = naming::strip_extension(destination_base);
+        let filename = if base.is_empty() {
+            naming::sanitize_filename(
+                std::path::Path::new(input_path)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .as_deref()
+                    .unwrap_or("reconvertir"),
+            )
+        } else {
+            base.to_string()
+        };
+        let final_destination = naming::resolve_destination(&filename, &extension, policy)?;
+
+        let task = DownloadTask {
+            id: id.clone(),
+            kind: TaskKind::Convert,
+            seq: self.next_seq.fetch_add(1, Ordering::Relaxed),
+            source_url: None,
+            portal: None,
+            title: std::path::Path::new(input_path)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string()),
+            duration_sec: None,
+            qualities: Vec::new(),
+            input_path: Some(input_path.to_string()),
+            selected_quality_id: None,
+            selected_format: Some(format),
+            destination: Some(final_destination),
+            state: TaskState::Queued,
+            progress: None,
+            error: None,
+            retry_count: 0,
+            created_at: Self::now_iso(),
+            updated_at: Self::now_iso(),
+        };
+        self.tasks.lock().expect("tasks lock").insert(id.clone(), task);
+        self.set_state(&id, TaskState::Inspecting)?;
+        Self::spawn_convert_runner(Arc::clone(self), id.clone());
+        Ok(id)
+    }
+
+    /// Runner de conversión (C-20/RF-06): FFprobe valida el archivo (EC-30),
+    /// FFmpeg ejecuta y el resultado se verifica (T2): exit 0 + existe + > 0 bytes.
+    async fn run_convert_inner(manager: Arc<Self>, task_id: String) {
+        let Some(task) = manager.snapshot(&task_id) else { return };
+        let (Some(input), Some(format), Some(destination)) = (
+            task.input_path.clone(),
+            task.selected_format,
+            task.destination.clone(),
+        ) else {
+            let _ = manager.apply_failure(&task_id, &TaskError::new(ErrorCode::Ec23, Some("conversión sin configuración".into())));
+            return;
+        };
+
+        // Cancelación durante la inspección inicial (T4).
+        if manager.current_signal(&task_id) == MotorSignal::Cancelar {
+            let _ = manager.set_state(&task_id, TaskState::Cancelled);
+            let snap = manager.snapshot(&task_id).expect("tarea existente");
+            manager.record_history(&snap);
+            return;
+        }
+
+        // FFprobe valida que el archivo sea multimedia real (CA-06.2).
+        if let Err(e) = ffmpeg::probe_file(Path::new(&input)).await {
+            let _ = manager.apply_failure(&task_id, &e);
+            return;
+        }
+
+        if manager.set_state(&task_id, TaskState::Converting).is_err() {
+            return; // cancelado a tiempo
+        }
+        manager.store_progress(
+            &task_id,
+            &ProgressInfo {
+                percent: None, // sin progreso granular confiable: indeterminado (RF-04/REA F6.3)
+                bytes_downloaded: None,
+                bytes_total: None,
+                speed_bps: None,
+                eta_seconds: None,
+                phase: Phase::Converting,
+            },
+        );
+
+        // Validaciones previas: espacio en disco estimado (EC-24) — control básico.
+        let input_size = std::fs::metadata(&input).map(|m| m.len()).unwrap_or(0);
+        if let Some(parent) = Path::new(&destination).parent() {
+            if parent.exists() {
+                if let Some(bait) = Self::available_space(parent) {
+                    if bait < input_size * 2 {
+                        let _ = manager.apply_failure(&task_id, &TaskError::new(ErrorCode::Ec24, None));
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Ejecución real + verificación final (T2/CA-06.1).
+        match ffmpeg::convert_download(Path::new(&input), Path::new(&destination), format).await {
+            Ok(()) => {
+                let size = std::fs::metadata(&destination).map(|m| m.len()).unwrap_or(0);
+                {
+                    let mut tasks = manager.tasks.lock().expect("tasks lock");
+                    if let Some(task) = tasks.get_mut(&task_id) {
+                        task.progress = Some(ProgressInfo {
+                            percent: Some(100.0),
+                            bytes_downloaded: Some(size as i64),
+                            bytes_total: Some(size as i64),
+                            speed_bps: None,
+                            eta_seconds: None,
+                            phase: Phase::Converting,
+                        });
+                    }
+                }
+                let _ = manager.set_state(&task_id, TaskState::Completed);
+                let snap = manager.snapshot(&task_id).expect("tarea existente");
+                manager.record_history(&snap);
+            }
+            Err(e) => {
+                let _ = manager.apply_failure(&task_id, &e);
+            }
+        }
+    }
+
+    /// Espacio libre del sistema de archivos (ec-24). Función con test en Unix.
+    #[cfg(target_family = "unix")]
+    fn available_space(dir: &Path) -> Option<u64> {
+        let stat = std::process::Command::new("df")
+            .args(["-k", &dir.display().to_string()])
+            .output()
+            .ok()?;
+        let text = String::from_utf8_lossy(&stat.stdout);
+        // 3º campo del data row del `df -k` = espacio disponible (KiB).
+        let row = text.lines().nth(1)?;
+        let free_kib: u64 = row.split_whitespace().nth(3)?.parse().ok()?;
+        Some(free_kib.saturating_mul(1024))
+    }
+
+    #[cfg(target_family = "windows")]
+    fn available_space(_dir: &Path) -> Option<u64> {
+        None
+    }
+
     /// Vista de la cola: la más reciente arriba (REA C4).
     pub fn list(&self) -> Vec<DownloadTask> {
         let mut list: Vec<DownloadTask> = self
@@ -342,6 +511,13 @@ impl TaskManager {
     fn spawn_runner(manager: Arc<TaskManager>, task_id: String) {
         tauri::async_runtime::spawn(async move {
             TaskManager::run_download_inner(manager, &task_id).await;
+        });
+    }
+
+    /// Lanza el runner de conversión local (único creador de procesos).
+    fn spawn_convert_runner(manager: Arc<TaskManager>, task_id: String) {
+        tauri::async_runtime::spawn(async move {
+            TaskManager::run_convert_inner(manager, task_id).await;
         });
     }
 
@@ -384,7 +560,7 @@ impl TaskManager {
             &template,
             &quality.id,
             quality.audio_format_id.as_deref(),
-            &task.source_url,
+            &task.source_url.clone().unwrap_or_default(),
         );
 
         let spawn_result = Command::new(&yt_dlp_path)
@@ -701,10 +877,14 @@ impl TaskManager {
         };
         let entry = HistoryEntry {
             id: task.id.clone(),
-            kind: "download".to_string(),
+            kind: match task.kind {
+                TaskKind::Download => "download",
+                TaskKind::Convert => "convert",
+            }
+            .to_string(),
             title: task.title.clone().unwrap_or_else(|| "[sin título]".to_string()),
             portal: task.portal.clone(),
-            source_url: Some(redact_url(&task.source_url)),
+            source_url: task.source_url.as_deref().map(redact_url),
             format: task.selected_format.map(|f| match f {
                 OutputFormat::Mp4 => "mp4".to_string(),
                 OutputFormat::Mp3 => "mp3".to_string(),

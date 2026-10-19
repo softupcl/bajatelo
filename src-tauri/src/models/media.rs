@@ -73,6 +73,43 @@ pub fn parse_media_info(json: &str) -> Result<MediaInfo, TaskError> {
     })
 }
 
+/// Metadatos de un archivo local inspeccionado con FFprobe (RF-06/C-20).
+/// Sincronizado con `LocalMediaInfo` de `src/types/contracts.ts`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalMediaInfo {
+    pub container: Option<String>,
+    pub video_codec: Option<String>,
+    pub audio_codec: Option<String>,
+    pub duration_sec: Option<f64>,
+    pub size_bytes: Option<i64>,
+}
+
+/// Parsea la duración devuelta por ffprobe (`"1.012"`). Función pura — test.
+pub fn parse_probe_duration(raw: &str) -> Option<f64> {
+    let value: f64 = raw.trim().parse().ok()?;
+    value.is_finite().then_some(value)
+}
+
+/// Parsea la salida `-of default=nw=1` de ffprobe (`format_name=…` / `duration=…`).
+/// El format_name puede contener comas ("mov,mp4,m4a,3gp,3g2,mj2"): por eso el
+/// parse va por prefijos de línea, nunca por split de comas. Función pura — test.
+pub fn parse_probe_format_output(raw: &str) -> (Option<String>, Option<f64>) {
+    let mut container = None;
+    let mut duration = None;
+    for line in raw.lines() {
+        if let Some(v) = line.strip_prefix("format_name=") {
+            let v = v.trim();
+            if !v.is_empty() {
+                container = Some(v.to_string());
+            }
+        } else if let Some(v) = line.strip_prefix("duration=") {
+            duration = parse_probe_duration(v);
+        }
+    }
+    (container, duration)
+}
+
 /// Deriva las opciones de calidad de los formatos reales reportados por el motor
 /// (algoritmo del patrón REA §5: separar/ordenar/deduplicar/emparejar/etiquetar).
 pub fn derive_qualities(formats: &[serde_json::Value]) -> Vec<QualityOption> {
@@ -243,6 +280,25 @@ mod tests {
                 .code,
             ErrorCode::Ec11
         );
+    }
+
+    #[test]
+    fn probe_parse_handles_multiname_containers() {
+        // El format_name de MP4 contiene comas: el parse por prefijos es lo
+        // que evita romperlo (el split(',') sería incorrecto aquí).
+        let (container, duration) =
+            parse_probe_format_output("format_name=mov,mp4,m4a,3gp,3g2,mj2\nduration=1.012000\n");
+        assert_eq!(container.as_deref(), Some("mov,mp4,m4a,3gp,3g2,mj2"));
+        assert_eq!(duration, Some(1.012));
+
+        let (empty, none) = parse_probe_format_output("");
+        assert!(empty.is_none() && none.is_none());
+    }
+
+    #[test]
+    fn probe_duration_rejects_garbage() {
+        assert_eq!(parse_probe_duration("N/A"), None);
+        assert_eq!(parse_probe_duration(""), None);
     }
 
     #[test]

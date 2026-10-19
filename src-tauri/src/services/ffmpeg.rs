@@ -37,6 +37,41 @@ async fn probe_codec(input: &Path, stream: &str) -> Result<Option<String>, TaskE
     Ok(if raw.is_empty() { None } else { Some(raw) })
 }
 
+/// Inspección completa de un archivo local con FFprobe (RF-06/C-20).
+/// EC-30 si el archivo no es reconocible como multimedia; EC-35 si ffprobe falta.
+pub async fn probe_file(input: &Path) -> Result<crate::models::media::LocalMediaInfo, TaskError> {
+    let ffprobe = tool_locator::which("ffprobe")
+        .await
+        .ok_or(TaskError::new(ErrorCode::Ec35, None))?;
+    let output = Command::new(&ffprobe)
+        .args(["-v", "error", "-show_entries", "format=format_name,duration", "-of", "default=nw=1"])
+        .arg(input.as_os_str())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .await
+        .map_err(|e| TaskError::new(ErrorCode::Ec30, Some(e.to_string())))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let detail = stderr.lines().last().unwrap_or("").to_string();
+        return Err(TaskError::new(ErrorCode::Ec30, Some(detail)));
+    }
+    let (container, duration) = crate::models::media::parse_probe_format_output(
+        &String::from_utf8_lossy(&output.stdout),
+    );
+    if container.is_none() {
+        return Err(TaskError::new(ErrorCode::Ec30, Some("formato no reconocido".into())));
+    }
+    let (video, audio) = probe_codecs(input).await?;
+    let size_bytes = std::fs::metadata(input).map(|m| m.len() as i64).ok();
+    Ok(crate::models::media::LocalMediaInfo {
+        container,
+        video_codec: video,
+        audio_codec: audio,
+        duration_sec: duration,
+        size_bytes,
+    })
+}
+
 /// (códec vídeo, códec audio) del primer stream de cada tipo.
 pub async fn probe_codecs(
     input: &Path,
@@ -145,6 +180,54 @@ pub fn verify_output(target: &Path) -> Result<(), TaskError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// I2 (opt-in, `cargo test -- --ignored`): usa FFmpeg/FFprobe reales y un
+    /// fixture sintético generado en su lugar (sin contenido de terceros — §2).
+    #[tokio::test]
+    #[ignore]
+    async fn integration_probe_and_convert_real() {
+        use crate::models::task::OutputFormat;
+
+        let dir = std::env::temp_dir().join("rea-i2-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let fixture = dir.join("fixture.mp4");
+        let target_mp4 = dir.join("target.mp4");
+        let target_mp3 = dir.join("target.mp3");
+        let _ = std::fs::remove_file(&fixture);
+        let _ = std::fs::remove_file(&target_mp4);
+        let _ = std::fs::remove_file(&target_mp3);
+
+        let ffmpeg_bin = tool_locator::which("ffmpeg").await.expect("ffmpeg en I2");
+        let generated = Command::new(&ffmpeg_bin)
+            .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=d=1", "-f", "lavfi", "-i", "sine=d=1", "-shortest"])
+            .arg(&fixture)
+            .output()
+            .await
+            .expect("generación del fixture");
+        assert!(
+            generated.status.success() && fixture.exists(),
+            "no se generó el fixture"
+        );
+
+        // Inspección real (EC-30/EC-11 no deben ocurrir).
+        let info = probe_file(&fixture).await.expect("probe_file");
+        assert!(info.container.is_some());
+        assert!(info.duration_sec.is_some());
+
+        // Conversión MP4 con verificación (T2).
+        convert_download(&fixture, &target_mp4, OutputFormat::Mp4)
+            .await
+            .expect("conversión MP4");
+        assert!(std::fs::metadata(&target_mp4).map(|m| m.len() > 0).unwrap_or(false));
+
+        // Conversión MP3 con verificación (T2).
+        convert_download(&fixture, &target_mp3, OutputFormat::Mp3)
+            .await
+            .expect("conversión MP3");
+        assert!(std::fs::metadata(&target_mp3).map(|m| m.len() > 0).unwrap_or(false));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn mp4_compatibility_checks() {

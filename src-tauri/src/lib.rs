@@ -38,6 +38,8 @@ pub fn run() {
             commands::tasks::cancel_task,
             commands::tasks::retry_task,
             commands::tasks::get_tasks,
+            commands::convert::probe_local_file,
+            commands::convert::start_conversion,
             commands::prefs::get_preferences,
             commands::prefs::save_preferences,
             commands::history::history_list,

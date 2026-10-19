@@ -47,8 +47,21 @@ export const es = {
     title: 'Convertir archivo local',
     intro: 'Convierte archivos multimedia de tu equipo con FFmpeg (MP4 o MP3).',
     pickFile: 'Elegir archivo…',
-    notIntegrated:
-      'La conversión local todavía no está integrada (bloque 4 del backlog). Esta vista muestra el estado real: sin operaciones.',
+    probeSpinning: 'Inspeccionando…',
+    converting: 'Convirtiendo…',
+    convertingNote:
+      'La conversión se ejecuta con FFmpeg. El archivo de origen no se modifica nunca.',
+    again: 'Convertir de nuevo',
+    convert: 'Convertir',
+    done: 'Conversión completada y verificada.',
+    stop: 'Detener',
+    infoLabels: {
+      container: 'Contenedor',
+      videoCodec: 'Códec de vídeo',
+      audioCodec: 'Códec de audio',
+      duration: 'Duración',
+      size: 'Tamaño',
+    },
     empty: 'Aún no hay conversiones',
     emptyHint: 'Cuando conviertas un archivo, verás aquí el resultado y su historial.',
   },
