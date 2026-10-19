@@ -45,14 +45,14 @@ Elimina `Bajatelo.app` de Aplicaciones. Para borrar también los datos locales e
 
 ### 6 · Solución de problemas
 
-| Síntoma                                                    | Qué hacer                                                                                            |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| "El motor de descarga (yt-dlp) no está disponible" (EC-13) | Configuración → Diagnóstico → sigue la guía por SO y vuelve a comprobar                              |
-| "FFmpeg/FFprobe no está" (EC-35)                           | idem; la conversión local queda degradada hasta instalar                                             |
-| La descarga falla con conexión (EC-20)                     | revisa red; el contenido debe ser accesible sin bloqueo (sin bypass de DRM/ops: ver seguridad abajo) |
-| El sitio no lo permite o requiere acceso (EC-21)           | solo contenido autorizado: la app no evade paywalls ni DRM                                           |
-| "No se pudo abrir la carpeta/archivo" (EC-43)              | el archivo pudo moverse/borrarse; ábrelo manualmente                                                 |
-| La base de datos se restauró al arrancar (EC-41)           | se cuidó desde el backup automático; no perdiste operaciones previas completadas                     |
+| Síntoma                                                    | Qué hacer                                                                                                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "El motor de descarga (yt-dlp) no está disponible" (EC-13) | Configuración → "Actualizar motor" (lo baja del release oficial y verifica su SHA-256); si el equipo quedó sin red, instala yt-dlp con el gestor del SO |
+| "FFmpeg/FFprobe no está" (EC-35)                           | no debería ocurrir con el FFmpeg embebido del instalador; si pasa, Diagnóstico muestra qué binario falta y la guía por SO del gestor                    |
+| La descarga falla con conexión (EC-20)                     | revisa red; el contenido debe ser accesible sin bloqueo (sin bypass de DRM/uces: ver seguridad abajo)                                                   |
+| El sitio no lo permite o requiere acceso (EC-21)           | solo contenido autorizado: la app no evade paywalls ni DRM                                                                                              |
+| "No se pudo abrir la carpeta/archivo" (EC-43)              | el archivo pudo moverse/borrarse; ábrelo manualmente                                                                                                    |
+| La base de datos se restauró al arrancar (EC-41)           | se cuidó desde el backup automático; no perdiste operaciones previas completadas                                                                        |
 
 **Privacidad:** sin telemetría ni cookies; los errores locales se guardan con la URL redactada (sin credenciales) y un detalle técnico truncado.
 

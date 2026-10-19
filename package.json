@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "test:rs": "cargo test --manifest-path src-tauri/Cargo.toml",
     "lint": "eslint . && prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "engines:fetch": "bash scripts/fetch-engines.sh",
+    "notices": "python3 scripts/third-party-notices.py"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
