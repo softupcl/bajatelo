@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Motores embebidos descargados en el build (D-09/C — reproducibles con scripts/fetch-engines.sh)
+src-tauri/engines/

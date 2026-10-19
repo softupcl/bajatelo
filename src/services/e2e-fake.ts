@@ -120,6 +120,10 @@ class E2eFake implements Bridge {
   async getTasks(): Promise<QueueTask[]> {
     return [...this.tasks]
   }
+  async updateYtdlp(): Promise<{ version: string; path: string }> {
+    /* no-op en E2E: sin red ni backend nativo */
+    return { version: '2026.e2e', path: '/e2e/fake/engines/yt-dlp' }
+  }
   async pickMediaFile(): Promise<string | null> {
     return '/e2e/fake/entrada.mp4'
   }

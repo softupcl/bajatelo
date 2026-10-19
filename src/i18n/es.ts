@@ -109,6 +109,12 @@ export const es = {
       'Herramientas externas necesarias para descargar y convertir. Comprueba que estén disponibles.',
     check: 'Comprobar de nuevo',
     checking: 'Comprobando…',
+    engineTitle: 'Motor de descarga (yt-dlp)',
+    engineIntro:
+      'La app lo actualiza desde el release oficial de yt-dlp verificando su SHA-256 oficial; se instala en los datos de la app y el PATH queda como respaldo.',
+    engineUpdate: 'Actualizar motor',
+    engineUpdating: 'Actualizando motor…',
+    engineUpdated: 'Motor de descarga actualizado a la versión {version}.',
     toolOk: 'Disponible',
     toolMissing: 'No encontrada',
     toolIncompatible: 'Incompatible',

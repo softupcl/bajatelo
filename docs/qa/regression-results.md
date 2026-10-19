@@ -149,6 +149,20 @@ Tag `v0.1.0` push → run `39313558162`: **3/3 jobs success** (windows-latest, m
 | `Bajatelo_0.1.0_amd64.AppImage` | 78 MB | ELF x86-64 static-pie |
 
 Condición honesta (AGENTS.md): el `.exe` **no se ejecutó en Windows** aquí; generar/type-converted para NSIS en runner nativo. Publicación final del draft: manual, del usuario. Avisos cosmeticos del runner (Node 20 deprecation en actions, cola ARM64): no afectan el resultado.
+
+## Registro — D-09/C: motores embebidos + actualización asistida (2026-10-19)
+
+El usuario aprueba la opción C del diseño `docs/spec/engines-bundling.md` (FFmpeg embebido + yt-dlp embebido con updater). Implementación real ejecutada:
+
+| # | Verificación | Resultado |
+|---|---|---|
+| 37 | `scripts/fetch-engines.sh darwin-aarch64` (idempotente, python3 portable) | ✅ yt-dlp 2026.08.19 verificado contra **SHA2-256SUMS oficial** (hash `0f192b7e…`, binario universal x86_64+arm64); ffmpeg/ffprobe osxexperts 9.0 con los SHA256 del proveedor (`591260…`/`e11c17…`); ejecutados directamente |
+| 38 | `cargo test` (locator: prioridad embebido→datos-al-so→PATH; 4 tests del updater: asset_map/tag_name/sums/sha256-vector) | ✅ **75/75**; I2 real 2/2 |
+| 39 | `npm run tauri build -- --bundles dmg` con `resources: ["engines/"]` | ✅ DMG **81,23 MiB**; montado: `Contents/Resources/engines/darwin-aarch64/{yt-dlp,ffmpeg,ffprobe}` ejecutables y operativos (`-version` ok dentro del volumen) |
+| 40 | Smoke del binario del DMG con motores embebidos | ✅ arranca (PID 37335) y se detiene limpio |
+| 41 | Workflow release.yml: paso `download pinned engines` por plataforma | escrito (win: BtbN `autobuild-2026-10-19-13-06` 9.0.2; linux idem; licencias en MANIFEST.txt) — se verificará en el próximo tag |
+
+Licencias (GPL de FFmpeg) (GPL de FFmpeg): oferta de código fuente enlazada en el draft del release + `licensing-notes.md` §1; yt-dlp Unlicense sin condiciones. Los binarios NO se comitean (`.gitignore`).
 | 22 | `python3 scripts/third-party-notices.py` | ✅ `THIRD-PARTY-NOTICES.md` con 472 crates licenciados (0 desconocidas) + JS de runtime; reproducible y sin red | passed |
 | 23 | Suite tras los cambios de fase 7 (asistente diagnóstico, i18n, README, ignores) | ✅ cargo 67/67 · Vitest 11/11 · Playwright 7/7 · lint/typecheck limpios | passed |
 

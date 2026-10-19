@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 use std::time::Duration;
 
 use tokio::process::Command;
@@ -8,7 +9,61 @@ use crate::models::diagnostics::{ToolDiagnostics, ToolKind, ToolStatus};
 /// Límite de tiempo para ejecutar `--version` (RNF-05: diagnóstico asíncrono, no bloqueante).
 pub const TOOL_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Localiza un ejecutable en el PATH y consulta su versión con timeout.
+/// Directorios de motores registrados en el arranque (D-09/C): el directorio
+/// `engines` del directorio de datos de la app (donde cae el yt-dlp actualizado).
+static REENGINE_DIRS: RwLock<Vec<PathBuf>> = RwLock::new(Vec::new());
+
+/// Registra un directorio adicional de motores (directorio de datos de la app).
+pub fn register_engine_dir(dir: PathBuf) {
+    if let Ok(mut dirs) = REENGINE_DIRS.write() {
+        dirs.push(dir);
+    }
+}
+
+/// Candidatos de motores embebidos junto al ejecutable (mayor prioridad que PATH):
+/// bundle macOS (`Contents/Resources/engines`), win/linux junto al exe y build local.
+pub fn engine_candidate_dirs(exe_dir: &Path) -> Vec<PathBuf> {
+    vec![
+        exe_dir.join("../Resources/engines"),
+        exe_dir.join("engines"),
+        exe_dir.join("../engines"),
+    ]
+}
+
+/// Busca el ejecutable recorriendo `PATH` (sin depender del shell — RNF-01).
+pub async fn which(program: &str) -> Option<PathBuf> {
+    // 1) Motores embebidos junto al ejecutable (prioridad sobre PATH — D-09/C).
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            for dir in engine_candidate_dirs(exe_dir) {
+                let candidate = dir.join(program);
+                if is_executable(&candidate) {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+    // 2) Directorio de datos (yt-dlp actualizado por el usuario desde la app).
+    if let Ok(dirs) = REENGINE_DIRS.read() {
+        for dir in dirs.iter() {
+            let candidate = dir.join(program);
+            if is_executable(&candidate) {
+                return Some(candidate);
+            }
+        }
+    }
+    // 3) PATH (SO del usuario).
+    let path_var = std::env::var_os("PATH")?;
+    let dirs = std::env::split_paths(&path_var);
+    for dir in dirs {
+        let candidate = dir.join(program);
+        if is_executable(&candidate) {
+            return Some(candidate);
+        }
+    }
+    None
+}
+/// Localiza un ejecutable (embebido → datos de app → PATH) y consulta su versión con timeout.
 /// Clasificación (RF-08):
 /// - no está en el PATH → `missing`
 /// - existe pero no responde a tiempo o salida vacía → `incompatible`
@@ -40,19 +95,6 @@ pub async fn locate_and_version(
             },
         },
     }
-}
-
-/// Busca el ejecutable recorriendo `PATH` (sin depender del shell — RNF-01).
-pub async fn which(program: &str) -> Option<PathBuf> {
-    let path_var = std::env::var_os("PATH")?;
-    let dirs = std::env::split_paths(&path_var);
-    for dir in dirs {
-        let candidate = dir.join(program);
-        if is_executable(&candidate) {
-            return Some(candidate);
-        }
-    }
-    None
 }
 
 fn is_executable(path: &PathBuf) -> bool {
@@ -136,5 +178,41 @@ mod tests {
             let found = which("ls").await;
             assert!(found.is_some(), "no se encontró 'ls' en el PATH");
         }
+    }
+
+    #[test]
+    fn engine_candidate_dirs_cover_mac_and_portable_layouts() {
+        use std::path::Path;
+        let exe_dir = Path::new("/Applications/Bajatelo.app/Contents/MacOS");
+        let dirs = engine_candidate_dirs(exe_dir);
+        let as_text: Vec<String> = dirs.iter().map(|d| d.to_string_lossy().to_string()).collect();
+        // macOS: engines dentro del bundle Resources.
+        assert!(as_text.iter().any(|d| d.ends_with("MacOS/../Resources/engines")));
+        // Portátiles: junto al exe y el layout de build local.
+        assert!(as_text.iter().any(|d| d.ends_with("MacOS/engines")));
+        assert!(as_text.iter().any(|d| d.ends_with("MacOS/../engines")));
+    }
+
+    /// El directorio de datos (donde cae el yt-dlp actualizado) tiene prioridad
+    /// sobre el PATH (D-09/C): registro + resolución.
+    #[tokio::test]
+    async fn registered_engine_dir_takes_priority_over_path() {
+        let fake = std::env::temp_dir().join("bajatelo-engine-priority-test");
+        std::fs::create_dir_all(&fake).unwrap();
+        let fake_tool = fake.join("bajatelo-priority-tool");
+        if !fake_tool.exists() {
+            std::fs::write(&fake_tool, b"#!/bin/sh\n").unwrap();
+        }
+        #[cfg(target_family = "unix")]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&fake_tool, std::fs::Permissions::from_mode(0o755));
+        }
+        register_engine_dir(fake.clone());
+        let found = which("bajatelo-priority-tool").await;
+        assert!(found.is_some(), "el directorio registrado no se usó");
+        assert_eq!(found.unwrap(), fake_tool);
+        let _ = std::fs::remove_file(&fake_tool);
+        let _ = std::fs::remove_dir(&fake);
     }
 }

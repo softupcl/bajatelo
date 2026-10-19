@@ -37,6 +37,11 @@ export interface Bridge {
   retryTask(taskId: string): Promise<void>
   /** Snapshot de la cola (al montar la vista y tras acciones sin eventos). */
   getTasks(): Promise<QueueTask[]>
+  /**
+   * Actualiza yt-dlp desde el release oficial (D-09/C) con verificación
+   * SHA-256; lo instala en el directorio de datos de la app.
+   */
+  updateYtdlp(): Promise<{ version: string; path: string }>
   /** Conversión local (RF-06/C-20): selección nativa + FFprobe + FFmpeg. */
   pickMediaFile(): Promise<string | null>
   /** Diálogo nativo de guardado (RF-06): destino de la conversión. */
@@ -103,6 +108,9 @@ class TauriBridge implements Bridge {
   }
   async getTasks(): Promise<QueueTask[]> {
     return invoke<QueueTask[]>('get_tasks')
+  }
+  async updateYtdlp(): Promise<{ version: string; path: string }> {
+    return invoke<{ version: string; path: string }>('update_ytdlp')
   }
   async getPreferences(): Promise<Preferences> {
     return invoke<Preferences>('get_preferences')

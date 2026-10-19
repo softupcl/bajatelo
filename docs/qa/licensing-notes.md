@@ -4,8 +4,15 @@
 
 ## 1. Decisiones de distribución (aprobadas)
 
-- **El aplicativo NO redistribuye binarios de terceros de medios** (D-03): yt-dlp y FFmpeg son instalados por el usuario (Homebrew/gestor de la distro) y la app solo los **localiza** con diagnóstico (RF-08). Esto elimina el problema de redistribución GPL de algunos builds de FFmpeg empaquetados con códecs externos.
-- SQLite llega **compilado dentro** del binario (`rusqlite` feature `bundled`), en la misma modalidad de licencia pública de SQLite (SQLite Nu Public License — compatible con MIT/Apache apps).
+- **DECISIÓN D-09/C ADOPTADA (2026-10-19, autorizada por el usuario; revoca parcialmente D-03):** los motores se **embeben** en los instaladores según la opción "híbrido" del diseño `docs/spec/engines-bundling.md`:
+  - **FFmpeg/FFprobe 9.0.2** embebido por plataforma (win/linux: BtbN `autobuild-2026-10-19-13-06` GPL; darwin-aarch64: osxexperts 9.0 con SHA256 y fuente publicada).
+  - **yt-dlp 2026.08.19** embebido por plataforma (binarios oficiales del repo yt-dlp, verificados contra su `SHA2-256SUMS`) **con actualización asistida** desde la app (botón en Configuración → `update_ytdlp`): baja el release oficial más reciente, verifica el SHA2-256SUMS oficial y lo instala en los datos de la app.
+  - El PATH queda como respaldo (degradación RF-08 vigente) y el diagnostic real sigue mostrando la versión usada.
+- **Oferta de código GPL (FFmpeg)**: los instaladores incluyen binarios GPL; el oferta del código fuente corresponde por versión:
+  - FFmpeg 9.0.2: https://github.com/FFmpeg/FFmpeg/tree/n9.0.2 (tarball oficial)
+  - Builds BtbN: https://github.com/BtbN/FFmpeg-Builds (scripts de configuración del build)
+  - Enunciado incluido en los datos del draft-release y en `THIRD-PARTY-NOTICES.md` (re-generar con `scripts/third-party-notices.py`, que ya lista los crates).
+- **Licencia del binario macOS (osxexperts)**: el proveedor marca sus builds "educational"; hay precedentes de redistribución comunitaria con hashes publicados (p. ej. `ffmpeg-static`, BSD-2). Se distribuyen tal cual, con la fuente FFmpeg enlazada y su SHA-256 verificado. Si se prefiere un proveedor alternativo, se sustituye en `scripts/fetch-engines.sh` (único punto de configuración).
 
 ## 2. Inventario de dependencias verificadas
 

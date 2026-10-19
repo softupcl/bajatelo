@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { t } from '../i18n'
 import { getBridge } from '../services/bridge'
+import { errorText, toTaskError } from '../services/errors'
 import StatusBadge from '../components/StatusBadge.vue'
 import type { ConflictPolicy, Preferences, ToolDiagnostics, ToolKind } from '../types/contracts'
 
@@ -9,6 +10,30 @@ import type { ConflictPolicy, Preferences, ToolDiagnostics, ToolKind } from '../
 const diagnostics = ref<ToolDiagnostics[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+/* Actualización del motor de descarga (D-09/C). */
+const updatingEngine = ref(false)
+const engineUpdate = ref<string | null>(null)
+const engineUpdateError = ref<string | null>(null)
+
+async function updateEngine(): Promise<void> {
+  if (updatingEngine.value) return
+  updatingEngine.value = true
+  engineUpdate.value = null
+  engineUpdateError.value = null
+  try {
+    const result = await getBridge().updateYtdlp()
+    engineUpdate.value = t('settings').engineUpdated.replace('{version}', result.version)
+    await check() // refresca el diagnóstico con el motor nuevo
+  } catch (e) {
+    const taskError = toTaskError(e)
+    engineUpdateError.value = taskError
+      ? `${errorText(taskError.code)} ${taskError.detail ?? ''}`.trim()
+      : String(e)
+  } finally {
+    updatingEngine.value = false
+  }
+}
 
 function labelFor(tool: ToolKind): string {
   return t('settings').tools[tool]
@@ -144,6 +169,19 @@ const guideSteps = computed(() =>
     </div>
     <p v-else-if="diagnostics.length" role="status">{{ t('diagnostics').allOk }}</p>
 
+    <!-- Motores (D-09/C): actualización asistida de yt-dlp. -->
+    <div class="engine-row">
+      <div>
+        <h3>{{ t('settings').engineTitle }}</h3>
+        <p class="lead">{{ t('settings').engineIntro }}</p>
+      </div>
+      <button type="button" :disabled="updatingEngine" @click="updateEngine">
+        {{ updatingEngine ? t('settings').engineUpdating : t('settings').engineUpdate }}
+      </button>
+    </div>
+    <p v-if="engineUpdate" role="status" aria-live="polite" class="ok-text">{{ engineUpdate }}</p>
+    <p v-if="engineUpdateError" role="alert" class="error-text">{{ engineUpdateError }}</p>
+
     <h2>{{ t('settings').prefsTitle }}</h2>
     <p v-if="prefs" class="lead" role="status" aria-live="polite">
       {{ saving ? t('settings').saving : t('settings').prefsSaved }}
@@ -208,6 +246,31 @@ const guideSteps = computed(() =>
 }
 .diag-guide h3 {
   margin: 0 0 6px;
+}
+.engine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  max-width: 640px;
+}
+.engine-row h3 {
+  margin: 0 0 4px;
+}
+.engine-row .lead {
+  margin: 0;
+}
+.engine-row button {
+  align-self: center;
+}
+.ok-text {
+  color: #14432a;
+  font-weight: 600;
 }
 .diag-table {
   width: 100%;

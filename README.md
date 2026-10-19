@@ -14,17 +14,14 @@ Aplicación de escritorio independiente (Tauri 2 + Vue 3 + TypeScript + Rust) pa
 2. Monta el DMG y arrastra `Bajatelo.app` a `Aplicaciones`.
 3. Primer arranque: macOS GateKeeper mostrará el aviso de app sin notarizar (la firma/notarización queda fuera del MVP, requiere certificado del usuario). Clic derecho → **Abrir** para permitirlo, o desactívalo en Preferencias de Seguridad.
 
-### 2 · Motores: yt-dlp y FFmpeg (no vienen incrustados)
+### 2 · Motores incluidos: yt-dlp y FFmpeg van dentro (D-09 — opción híbrida)
 
-**Decision de diseño (D-03):** REA **no redistribuye** yt-dlp ni FFmpeg; los instala el usuario y la app los localiza. Sin ellos, la app se inicia igual y la vista **Configuración → Diagnóstico** muestra qué falta y el comando de instalación estilo `brew`/`winget`.
+**Bajatelo no requiere instalar motores a mano**: los instaladores incluyen
 
-| SO      | yt-dlp                                          | FFmpeg (+FFprobe)                  |
-| ------- | ----------------------------------------------- | ---------------------------------- |
-| macOS   | `brew install yt-dlp` (o `pipx install yt-dlp`) | `brew install ffmpeg`              |
-| Windows | `winget install yt-dlp` o instalador oficial    | `winget install ffmpeg`            |
-| Linux   | `pipx install yt-dlp` o paquete de la distro    | `sudo apt install ffmpeg` (distro) |
+- **FFmpeg 9.0.2 / FFprobe** (estático, por plataforma — GPL con oferta de código fuente en el release)
+- **yt-dlp 2026.08.19** (binario oficial, verificado con su `SHA2-256SUMS`) **con actualización asistida**: Configuración → "Actualizar motor" baja el release oficial más reciente de yt-dlp, comprueba su SHA-256 y lo instala en los datos de la app — los extractores quedan al día sin esperar una versión nueva de la app.
 
-**Actualización de los motores:** se actualizan con el gestor del sistema (`brew upgrade yt-dlp`, `brew upgrade ffmpeg`, `pipx upgrade yt-dlp`…) — la app no gestiona ni altera sus versiones; el diagnóstico avisa si hay algo obsoleto/no funcionando.
+Si el equipo ya tiene yt-dlp/FFmpeg en el PATH (Homebrew/gestor del SO), se usa como **respaldo**. Configuración → Diagnóstico muestra qué binario se usa realmente (embebido o del sistema) y su versión. Sin conexión la app arranca normalmente con el motor embebido (la actualización necesita red; su fallo se reporta con EC-20).
 
 ### 3 · Instaladores para Windows y Linux (requisitos documentados; builds por verificación por SO)
 

@@ -53,6 +53,16 @@ jobs:
       - name: install frontend dependencies
         run: npm ci
 
+      - name: download pinned engines (yt-dlp 2026.08.19 + FFmpeg 9.0.2 — D-09/C)
+        run: |
+          case "${{ matrix.platform }}" in
+            macos-latest) PLATFORM="darwin-aarch64" ;;
+            windows-latest) PLATFORM="windows-x86_64" ;;
+            ubuntu-22.04) PLATFORM="linux-x86_64" ;;
+          esac
+          bash scripts/fetch-engines.sh "$PLATFORM"
+          cat "src-tauri/engines/$PLATFORM/MANIFEST.txt"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -27,6 +27,10 @@ pub fn run() {
             // Gestor de tareas (D-12): dueño de la cola, procesos y eventos.
             let task_manager = app::task_manager::TaskManager::new(app.handle().clone());
             app.manage(task_manager);
+
+            // Motores (D-09/C): el yt-dlp actualizado desde la app vive en
+            // <datos>/engines y tiene prioridad sobre el PATH.
+            services::tool_locator::register_engine_dir(data_dir.join("engines"));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -41,6 +45,7 @@ pub fn run() {
             commands::convert::probe_local_file,
             commands::convert::start_conversion,
             commands::convert::open_item,
+            commands::engine::update_ytdlp,
             commands::prefs::get_preferences,
             commands::prefs::save_preferences,
             commands::history::history_list,

@@ -14,15 +14,18 @@
 
 ## 2. Prueba manual con contenido real (solo contenido autorizado del usuario)
 
+> **Ejecución real del usuario (2026-10-19, reportada en la sesión):** "funciona perfecto descargar videos y audio desde YouTube". Estos items quedan **passed** con esa prueba; lo no cubierto se declara not-tested.
+
 | Item | Estado | Notas |
 |---|---|---|
-| Análisis de una URL real de YouTube (o la lista de soporte oficial) | not-tested — ejecutar manualmente | motor 2026.8.19 instalado en el SO |
-| Descarga completa → `completed` con archivo no vacío | not-tested | requiere la red del usuario; ver bloqueos del differential-report §4.1 |
-| Pausa → Reanudar continúa los `.part` (Q3 del REA) | not-tested | valida la inferencia de la referencia (C7) |
-| Cancelación no deja procesos ni temporales residuales | not-tested | `pgrep yt-dlp` + revisar `/tmp/rea` |
-| Conversión local de un archivo del usuario (MP4→MP3) | ✅ equivalente automatizable (I2 real en verde) | el manual confirmará la UI |
-| **Botón Detener durante una conversión real** → estado `cancelled`, sin salida parcial y sin proceso FFmpeg residual | not-tested — verificar manualmente tras la corrección de la 2ª pasada | mecanismo verificado en pruebas (proceso POSIX + fixture corto); se recomienda confirmar la percepción en UI |
-| **Abrir archivo / Abrir carpeta** tras una conversión `completed` | not-tested — verificar manualmente | comando `open_item` (opener); requiere app nativa en ejecución |
+| Análisis de una URL real de YouTube | ✅ passed (prueba manual del usuario, 2026-10-19) | motor 2026.8.19 del SO |
+| Descarga completa vídeo → `completed` con archivo no vacío | ✅ passed (prueba manual del usuario) | YouTube; formats reales |
+| Descarga de audio (MP3 con bestaudio) | ✅ passed (prueba manual del usuario) | — |
+| Pausa → Reanudar continúa los `.part` (Q3 del REA) | not-tested — ejecutar manualmente | el mecanismo está en verde por código; la percepción del usuario aún no |
+| Cancelación no deja procesos ni temporales residuales | not-tested — `pgrep yt-dlp` + revisar `$/temp/bajatelo` | |
+| Conversión local de un archivo del usuario (MP4→MP3) | ✅ I2 real en verde; UI esperando confirmación manual | |
+| **Botón Detener durante una conversión real** | not-tested | mecanismo verificado con proceso POSIX |
+| **Abrir archivo / Abrir carpeta** tras una conversión | not-tested | requiere app nativa en ejecución |
 
 ## 3. Accesibilidad final con VoiceOver/lector de pantalla real
 
