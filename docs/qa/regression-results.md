@@ -30,7 +30,7 @@
 | Éxito y fallo de conversión | ✅ unit (compatibilidad códecs) + **I2 real** (MP4/MP3 con FFmpeg) |
 | Conflictos de salida, paths inválidos, filenames saneados | ✅ 8 tests de naming (incl. traversal imposible por construcción) |
 | Persistencia del historial y preferencias | ✅ 6 tests del store (round-trip, backup+recuperación, recreate) |
-| Estados de UI vacíos/cargando/error/completado | 🔶 passed en construcción (EmptyState/estados); e2e automatizado pendiente (R-30) |
+| Estados de UI vacíos/cargando/error/completado | ✅ **passed (R-30)**: Playwright E1 — 6/6 pruebas (`npx playwright test` en 1.5 s): navegación+aria-current, etiqueta del campo, catalogaención honesta del análisis, empty `role=status`, diagnóstico y foco por teclado | |
 
 ## Registros ejecutados y corregidos durante esta fase (transparencia)
 
@@ -47,3 +47,12 @@
 - Las verificaciones 1–6 son repetibles localmente sin red ni plataformas de terceros (AGENTS.md §11).
 - La única prueba con binarios reales de medios (I2) es **opt-in** (`--ignored`) y usa un fixture sintético generado por el propio test; no descarga contenido de terceros.
 - La descarga real contra YouTube (flujo F4/F5 con red) NO ha sido automatizada y sí debe verificarse manualmente antes de release (R-32 checklist).
+
+## Registro R-30 (2026-10-19)
+
+| # | Comando exacto | Resultado | Fecha |
+|---|---|---|---|
+| 10 | `npm install -D @playwright/test` + `npx playwright install chromium` (1.64.1 / chromium-1248) | ✅ instalado | 2026-10-19 |
+| 11 | `npx playwright test` (config playwright.config.ts; Vite dev 1420; doble del puente `rea-e2e=1`) | ✅ `6 passed (1.5s)` — navegación/aria-current, etiqueta+disabled honesto, ficha con calidades del fixture, empty `role=status`, diagnóstico, foco por teclado | 2026-10-19 |
+
+El doble del puente (`src/services/e2e-fake.ts`) cumple los contratos de `src/types/contracts.ts`; el modo de pruebas solo se activa con la clave `rea-e2e=1`, fuera de uso normal de la app.

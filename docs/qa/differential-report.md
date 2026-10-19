@@ -46,7 +46,7 @@
 ## 4. Deudas de verificación (para el siguiente informe)
 
 1. **Descarga real contra YouTube/Vimeo** (F4/F5 dinámicos): `blocked` — requiere ejecutar la app con URL real; la suite automática NO debe depender de terceros (AGENTS.md §11). Se ejecutará cuando el usuario lo solicite o en el checklist manual de R-32.
-2. **e2e de pantalla (Playwright E1)** sobre las 5 vistas: not-tested — plan: R-30 con el backend simulado del puente (inodoro inyectable `setBridge`).
+2. **e2e de pantalla (Playwright E1)** sobre las 5 vistas: ✅ **passed** (ejecutado en R-30): 6/6 pruebas en verde — navegación con `aria-current`, etiqueta del campo URL, análisis honesto con doble del puente, empty state anunciado con `role=status`, tabla del diagnóstico y foco por teclado.
 3. **Empaquetado DMG/NSIS/DEB**: not-tested hasta R-32 (bloque de cierre).
 
 ## 5. Veredicto
