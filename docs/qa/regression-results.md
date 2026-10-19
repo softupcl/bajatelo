@@ -182,6 +182,14 @@ Primera función del backlog post-MVP: detección de URL compatible **copiada al
 - Preferencia `clipboardDetection` (activa por defecto) con checkbox en Configuración (RF-09)
 - plugin oficial `tauri-plugin-clipboard-manager` con capability de solo-lectura (`allow-read-text`): mínimo privilegio, sin escritura de portapapeles
 - Verificación: cargo 75/75 · Vitest 11/11 · Playwright 8/8 · lint/typecheck limpio · DMG 81,38 MiB con motores + X-02 dentro
+
+## Registro — X-05 notificaciones al terminar (post-MVP, REA C12/F6.7) — 2026-10-19
+
+- Al completar/fallar/cancelar la **última descarga (kind=Download)** de la cola: notificación local del SO ("Bajatelo — Todas las descargas terminaron"), replicando el patrón de la referencia (bandeja "All downloads finished", `mainwindow.cpp:522-528`)
+- Punto único: `TaskManager::set_state` (cada transición emitida pasa por él); solo si quedan 0 descargas activas/pendientes
+- Preferencia `notificationsOnFinish` (activa por defecto) con checkbox en Configuración
+- plugin oficial `tauri-plugin-notification` con capability `notification:default`
+- Verificación: cargo 75/75 · Vitest 11/11 · Playwright 8/8 · lint limpio · **DMG 0.1.1 final 81,48 MiB** con motores + X-02 + X-05
 | 22 | `python3 scripts/third-party-notices.py` | ✅ `THIRD-PARTY-NOTICES.md` con 472 crates licenciados (0 desconocidas) + JS de runtime; reproducible y sin red | passed |
 | 23 | Suite tras los cambios de fase 7 (asistente diagnóstico, i18n, README, ignores) | ✅ cargo 67/67 · Vitest 11/11 · Playwright 7/7 · lint/typecheck limpios | passed |
 

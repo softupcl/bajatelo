@@ -102,9 +102,60 @@ impl TaskManager {
         task.state = next;
         task.updated_at = Self::now_iso();
         let snapshot = task.clone();
+        let kind = task.kind;
         drop(tasks);
         let _ = self.app.emit("task://state", snapshot);
+        // X-05 (REA C12/F6.7): al terminar la ÚLTIMA descarga de la cola,
+        // notificación local honesta (sin telemetría; respetando preferencia).
+        if matches!(next, TaskState::Completed | TaskState::Failed | TaskState::Cancelled)
+            && kind == TaskKind::Download
+            && self.active_download_count() == 0
+        {
+            self.notify_all_done();
+        }
         Ok(())
+    }
+
+    /// Descargas (kind=Download) con trabajo pendiente/activo.
+    fn active_download_count(&self) -> usize {
+        let tasks = self.tasks.lock().expect("tasks lock");
+        tasks
+            .values()
+            .filter(|t| t.kind == TaskKind::Download)
+            .filter(|t| {
+                matches!(
+                    t.state,
+                    TaskState::Queued
+                        | TaskState::Inspecting
+                        | TaskState::Ready
+                        | TaskState::Downloading
+                        | TaskState::Pausing
+                        | TaskState::Paused
+                        | TaskState::Converting
+                )
+            })
+            .count()
+    }
+
+    /// Notificación local "todas las descargas terminaron" (X-05).
+    fn notify_all_done(&self) {
+        let enabled = self
+            .app
+            .state::<Store>()
+            .get_preferences()
+            .map(|p| p.notifications_on_finish)
+            .unwrap_or(true);
+        if !enabled {
+            return;
+        }
+        use tauri_plugin_notification::NotificationExt;
+        let _ = self
+            .app
+            .notification()
+            .builder()
+            .title("Bajatelo")
+            .body("Todas las descargas terminaron.")
+            .show();
     }
 
     /// Análisis (RF-01/RF-02): crea la tarea (`queued → inspecting`) y termina

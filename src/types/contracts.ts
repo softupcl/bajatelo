@@ -181,6 +181,8 @@ export interface Preferences {
   removeFinishedFromQueue: boolean
   /** X-02: detección de URL copiada al portapapeles (REA D1). */
   clipboardDetection: boolean
+  /** X-05: notificación al terminar todas las descargas (REA C12/F6.7). */
+  notificationsOnFinish: boolean
   locale: string
 }
 

@@ -140,6 +140,7 @@ export const es = {
       rememberFormat: 'Recordar el último formato elegido',
       removeFinished: 'Retirar de la cola las descargas terminadas',
       clipboardDetection: 'Detectar URLs de vídeo copiadas al portapapeles',
+      notificationsOnFinish: 'Notificar cuando terminen todas las descargas',
     },
   },
   about: {

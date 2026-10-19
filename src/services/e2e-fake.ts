@@ -162,6 +162,7 @@ class E2eFake implements Bridge {
       rememberFormat: true,
       removeFinishedFromQueue: false,
       clipboardDetection: true,
+      notificationsOnFinish: true,
       locale: 'es',
     }
   }

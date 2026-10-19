@@ -14,6 +14,8 @@ pub struct Preferences {
     pub remove_finished_from_queue: bool,
     /// X-02: detectar URL compatible al copiar al portapapeles (REA D1).
     pub clipboard_detection: bool,
+    /// X-05: notificación del sistema cuando terminan todas las descargas.
+    pub notifications_on_finish: bool,
     pub locale: String,
 }
 
@@ -36,6 +38,7 @@ impl Default for Preferences {
             remember_format: true,
             remove_finished_from_queue: false,
             clipboard_detection: true,
+            notifications_on_finish: true,
             locale: "es".to_string(),
         }
     }
@@ -54,6 +57,7 @@ mod tests {
         assert!(p.remember_quality && p.remember_format);
         assert!(!p.remove_finished_from_queue);
         assert!(p.clipboard_detection);
+        assert!(p.notifications_on_finish);
         assert_eq!(p.locale, "es");
     }
 

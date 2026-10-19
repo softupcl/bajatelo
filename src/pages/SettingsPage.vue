@@ -240,6 +240,14 @@ const guideSteps = computed(() =>
         />
         <span>{{ t('settings').prefs.clipboardDetection }}</span>
       </label>
+      <label class="pref-row">
+        <input
+          type="checkbox"
+          :checked="prefs.notificationsOnFinish"
+          @change="update({ notificationsOnFinish: ($event.target as HTMLInputElement).checked })"
+        />
+        <span>{{ t('settings').prefs.notificationsOnFinish }}</span>
+      </label>
     </form>
   </section>
 </template>
