@@ -23,11 +23,21 @@ pub fn run() {
                 eprintln!("store: apertura con recuperación ({outcome:?})");
             }
             app.manage(store);
+
+            // Gestor de tareas (D-12): dueño de la cola, procesos y eventos.
+            let task_manager = app::task_manager::TaskManager::new(app.handle().clone());
+            app.manage(task_manager);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::diagnostics::get_diagnostics,
             commands::tasks::analyze_url,
+            commands::tasks::start_download,
+            commands::tasks::pause_task,
+            commands::tasks::resume_task,
+            commands::tasks::cancel_task,
+            commands::tasks::retry_task,
+            commands::tasks::get_tasks,
             commands::prefs::get_preferences,
             commands::prefs::save_preferences,
             commands::history::history_list,
