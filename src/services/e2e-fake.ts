@@ -1,6 +1,15 @@
 import type { Bridge } from './bridge'
 import { setBridge } from './bridge'
-import type { HistoryEntry, LocalMediaInfo, MediaInfo, Preferences, ToolDiagnostics } from '../types/contracts'
+import type {
+  AnalysisOutcome,
+  HistoryEntry,
+  LocalMediaInfo,
+  MediaInfo,
+  OutputFormat,
+  Preferences,
+  QueueTask,
+  ToolDiagnostics,
+} from '../types/contracts'
 
 /**
  * Doble del puente SOLO para pruebas E2E (Playwright sobre Vite, sin backend Tauri).
@@ -13,9 +22,36 @@ const FIXTURE_INFO: MediaInfo = {
   portal: 'youtube',
   durationSec: 61.5,
   qualities: [
-    { id: '137', label: '1080p (HD)', height: 1080, fps: 30, container: 'mp4', audioOnly: false, audioFormatId: '140', estimatedBytes: 5_800 },
-    { id: '136', label: '720p (HD)', height: 720, fps: 30, container: 'mp4', audioOnly: false, audioFormatId: '140', estimatedBytes: 3_800 },
-    { id: '18', label: '360p', height: 360, fps: 30, container: 'mp4', audioOnly: false, audioFormatId: null, estimatedBytes: 1_000 },
+    {
+      id: '137',
+      label: '1080p (HD)',
+      height: 1080,
+      fps: 30,
+      container: 'mp4',
+      audioOnly: false,
+      audioFormatId: '140',
+      estimatedBytes: 5_800,
+    },
+    {
+      id: '136',
+      label: '720p (HD)',
+      height: 720,
+      fps: 30,
+      container: 'mp4',
+      audioOnly: false,
+      audioFormatId: '140',
+      estimatedBytes: 3_800,
+    },
+    {
+      id: '18',
+      label: '360p',
+      height: 360,
+      fps: 30,
+      container: 'mp4',
+      audioOnly: false,
+      audioFormatId: null,
+      estimatedBytes: 1_000,
+    },
   ],
 }
 
@@ -27,8 +63,62 @@ class E2eFake implements Bridge {
       { tool: 'ffprobe', status: 'ok', version: 'e2e.9.0', path: '/e2e/fake/ffprobe' },
     ]
   }
-  async analyzeUrl(_url: string): Promise<MediaInfo> {
-    return FIXTURE_INFO
+  async analyzeUrl(_url: string): Promise<AnalysisOutcome> {
+    return { taskId: 'e2e-task-1', media: FIXTURE_INFO, error: null }
+  }
+  /** Cola simulada del doble: creada en `startDownload`, inspeccionable en las pruebas. */
+  private tasks: QueueTask[] = []
+  async startDownload(
+    _taskId: string,
+    _qualityId: string,
+    format: OutputFormat,
+    _destination: string,
+    _policy: 'ask' | 'number' | 'cancel',
+    _audioBitrate: string | null,
+  ): Promise<string> {
+    this.tasks = [
+      {
+        id: 'e2e-task-1',
+        kind: 'download',
+        seq: 1,
+        sourceUrl: 'https://e2e.example.com/video',
+        portal: 'youtube',
+        title: FIXTURE_INFO.title,
+        durationSec: FIXTURE_INFO.durationSec,
+        inputPath: null,
+        qualities: FIXTURE_INFO.qualities,
+        selectedQualityId: FIXTURE_INFO.qualities[0]?.id ?? null,
+        selectedFormat: format,
+        selectedAudioBitrate: '128',
+        destination: '/e2e/fake/descarga.mp4',
+        state: 'downloading',
+        progress: {
+          percent: 12.4,
+          bytesDownloaded: 720,
+          bytesTotal: 5800,
+          speedBps: 240_000,
+          etaSeconds: 21,
+          phase: 'downloading',
+        },
+        error: null,
+        retryCount: 0,
+        createdAt: '2026-10-19T12:00:00Z',
+        updatedAt: '2026-10-19T12:00:05Z',
+      },
+    ]
+    return this.tasks[0].id
+  }
+  async pauseTask(_taskId: string): Promise<void> {
+    /* no-op en E2E */
+  }
+  async resumeTask(_taskId: string): Promise<void> {
+    /* no-op en E2E */
+  }
+  async retryTask(_taskId: string): Promise<void> {
+    /* no-op en E2E */
+  }
+  async getTasks(): Promise<QueueTask[]> {
+    return [...this.tasks]
   }
   async pickMediaFile(): Promise<string | null> {
     return '/e2e/fake/entrada.mp4'
@@ -51,6 +141,9 @@ class E2eFake implements Bridge {
   }
   async cancelTask(): Promise<void> {
     /* no-op en E2E */
+  }
+  async openItem(_path: string, _reveal: boolean): Promise<void> {
+    /* no-op en E2E: sin backend nativo */
   }
   async getPreferences(): Promise<Preferences> {
     return {

@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn numbered_policy_increments_for_existing_files() {
-        let dir = std::env::temp_dir().join("rea-naming-test");
+        let dir = std::env::temp_dir().join("bajatelo-naming-test");
         let _ = std::fs::create_dir_all(&dir);
         let base = dir.join("clip").to_string_lossy().to_string();
         let _ = std::fs::remove_file(format!("{base}.mp4"));
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn cancel_policy_rejects_existing() {
-        let dir = std::env::temp_dir().join("rea-naming-test");
+        let dir = std::env::temp_dir().join("bajatelo-naming-test");
         std::fs::create_dir_all(&dir).unwrap();
         let base = dir.join("cancelcase").to_string_lossy().to_string();
         std::fs::write(format!("{base}.mp3"), b"x").unwrap();

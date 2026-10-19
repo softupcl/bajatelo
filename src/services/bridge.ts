@@ -2,10 +2,12 @@ import { invoke } from '@tauri-apps/api/core'
 import { getVersion } from '@tauri-apps/api/app'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import type {
+  AnalysisOutcome,
   HistoryEntry,
   LocalMediaInfo,
-  MediaInfo,
+  OutputFormat,
   Preferences,
+  QueueTask,
   ToolDiagnostics,
 } from '../types/contracts'
 
@@ -16,8 +18,25 @@ import type {
 export interface Bridge {
   /** Diagnóstico real de dependencias (RF-08) — comando Rust `get_diagnostics`. */
   getDiagnostics(): Promise<ToolDiagnostics[]>
-  /** Análisis real de una URL (RF-01/RF-02) — comando Rust `analyze_url`. */
-  analyzeUrl(url: string): Promise<MediaInfo>
+  /**
+   * Análisis real de una URL (RF-01/RF-02) — comando Rust `analyze_url`.
+   * La tarea queda creada en la cola; `taskId` es la clave de toda su vida (D-12).
+   */
+  analyzeUrl(url: string): Promise<AnalysisOutcome>
+  /** Descarga real (RF-04/RF-05/D-12) sobre una tarea en estado `ready`. */
+  startDownload(
+    taskId: string,
+    qualityId: string,
+    format: OutputFormat,
+    destination: string,
+    policy: ConflictPolicyAlias,
+    audioBitrate: string | null,
+  ): Promise<string>
+  pauseTask(taskId: string): Promise<void>
+  resumeTask(taskId: string): Promise<void>
+  retryTask(taskId: string): Promise<void>
+  /** Snapshot de la cola (al montar la vista y tras acciones sin eventos). */
+  getTasks(): Promise<QueueTask[]>
   /** Conversión local (RF-06/C-20): selección nativa + FFprobe + FFmpeg. */
   pickMediaFile(): Promise<string | null>
   /** Diálogo nativo de guardado (RF-06): destino de la conversión. */
@@ -28,8 +47,11 @@ export interface Bridge {
     format: 'mp4' | 'mp3',
     destination: string,
     policy: ConflictPolicyAlias,
+    audioBitrate: string | null,
   ): Promise<string>
   cancelTask(taskId: string): Promise<void>
+  /** Abre el archivo con el visor del SO o lo revela en su carpeta (req. 10, EC-43). */
+  openItem(path: string, reveal: boolean): Promise<void>
   /** Preferencias (RF-09, persistencia SQLite D-07). */
   getPreferences(): Promise<Preferences>
   savePreferences(prefs: Preferences): Promise<Preferences>
@@ -50,8 +72,37 @@ class TauriBridge implements Bridge {
   async getDiagnostics(): Promise<ToolDiagnostics[]> {
     return invoke<ToolDiagnostics[]>('get_diagnostics')
   }
-  async analyzeUrl(url: string): Promise<MediaInfo> {
-    return invoke<MediaInfo>('analyze_url', { url })
+  async analyzeUrl(url: string): Promise<AnalysisOutcome> {
+    return invoke<AnalysisOutcome>('analyze_url', { url })
+  }
+  async startDownload(
+    taskId: string,
+    qualityId: string,
+    format: OutputFormat,
+    destination: string,
+    policy: ConflictPolicyAlias,
+    audioBitrate: string | null,
+  ): Promise<string> {
+    return invoke<string>('start_download', {
+      taskId,
+      qualityId,
+      format,
+      destination,
+      policy,
+      audioBitrate,
+    })
+  }
+  async pauseTask(taskId: string): Promise<void> {
+    await invoke<void>('pause_task', { taskId })
+  }
+  async resumeTask(taskId: string): Promise<void> {
+    await invoke<void>('resume_task', { taskId })
+  }
+  async retryTask(taskId: string): Promise<void> {
+    await invoke<void>('retry_task', { taskId })
+  }
+  async getTasks(): Promise<QueueTask[]> {
+    return invoke<QueueTask[]>('get_tasks')
   }
   async getPreferences(): Promise<Preferences> {
     return invoke<Preferences>('get_preferences')
@@ -103,12 +154,22 @@ class TauriBridge implements Bridge {
     format: 'mp4' | 'mp3',
     destination: string,
     policy: ConflictPolicyAlias,
+    audioBitrate: string | null,
   ): Promise<string> {
-    return invoke<string>('start_conversion', { input, format, destination, policy })
+    return invoke<string>('start_conversion', {
+      input,
+      format,
+      destination,
+      policy,
+      audioBitrate,
+    })
   }
   /** Cancela una tarea en curso (T4) — mismo comando que para descargas. */
   async cancelTask(taskId: string): Promise<void> {
     await invoke<void>('cancel_task', { taskId })
+  }
+  async openItem(path: string, reveal: boolean): Promise<void> {
+    await invoke<void>('open_item', { path, reveal })
   }
   async getAppVersion(): Promise<string> {
     return getVersion()

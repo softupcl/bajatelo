@@ -72,7 +72,10 @@ impl TaskError {
     pub fn new(code: ErrorCode, detail: Option<String>) -> Self {
         Self {
             code,
-            detail: detail.map(|d| d.chars().take(500).collect()),
+            // CAT-3/RNF-04: redacta credenciales incrustadas antes de truncar.
+            detail: detail
+                .map(|d| crate::models::history::redact_credentials_in_text(&d))
+                .map(|d| d.chars().take(500).collect()),
         }
     }
 }
@@ -94,6 +97,21 @@ mod tests {
         let err = TaskError::new(ErrorCode::Ec23, Some(long_detail));
         let detail = err.detail.expect("detail present");
         assert_eq!(detail.len(), 500);
+    }
+
+    /// RNF-04/CAT-3: ningún detalle de error puede llevar credenciales en URLs.
+    #[test]
+    fn task_error_never_carries_url_credentials() {
+        let err = TaskError::new(
+            ErrorCode::Ec23,
+            Some("ERROR: https://api:user-key-12345@internal.example.org/resource falló".into()),
+        );
+        let detail = err.detail.expect("detail present");
+        assert!(
+            !detail.contains("user-key-12345"),
+            "detalles con credenciales: {detail}"
+        );
+        assert!(detail.contains("https://internal.example.org/resource"));
     }
 
     #[test]

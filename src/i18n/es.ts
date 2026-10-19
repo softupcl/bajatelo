@@ -4,7 +4,7 @@
  */
 export const es = {
   app: {
-    title: 'REA',
+    title: 'Bajatelo',
     tagline: 'Descargas y conversión multimedia',
   },
   nav: {
@@ -28,6 +28,27 @@ export const es = {
     urlLabel: 'URL del vídeo',
     urlPlaceholder: 'https://…',
     analyze: 'Analizar',
+    start: 'Descargar',
+    starting: 'Iniciando…',
+    audioBitrate: 'Calidad de audio (kbps)',
+    pause: 'Pausar',
+    resume: 'Reanudar',
+    stop: 'Detener',
+    retry: 'Reintentar',
+    openFile: 'Abrir archivo',
+    openFolder: 'Abrir carpeta',
+    etaLabel: 'restan',
+    stateQueued: 'En cola',
+    stateInspecting: 'Analizando…',
+    stateReady: 'Lista para descargar',
+    stateStarting: 'Iniciando…',
+    stateDownloading: 'Descargando',
+    statePausing: 'Pausando…',
+    statePaused: 'Pausada',
+    stateConverting: 'Convirtiendo…',
+    stateCompleted: 'Completada',
+    stateFailed: 'Fallida',
+    stateCancelled: 'Cancelada',
     queueTitle: 'Descargas actuales',
     emptyQueue: 'Aún no hay descargas',
     emptyQueueHint:
@@ -40,8 +61,6 @@ export const es = {
     qualitiesAvailable: 'calidades disponibles',
     format: 'Formato:',
     quality: 'Calidad:',
-    downloadPending:
-      'La cola de descargas reales se integra en el bloque 3 del backlog (D-12). La selección mostrada refleja el análisis real.',
   },
   conversion: {
     title: 'Convertir archivo local',
@@ -55,6 +74,11 @@ export const es = {
     convert: 'Convertir',
     done: 'Conversión completada y verificada.',
     stop: 'Detener',
+    openFile: 'Abrir archivo',
+    openFolder: 'Abrir carpeta',
+    openFail: 'No se pudo abrir (EC-43). Localiza el archivo manualmente.',
+    stopped: 'La conversión se detuvo por tu petición; no se conserva ninguna salida parcial.',
+    audioBitrate: 'Calidad de audio (kbps)',
     infoLabels: {
       container: 'Contenedor',
       videoCodec: 'Códec de vídeo',
@@ -109,13 +133,13 @@ export const es = {
     },
   },
   about: {
-    title: 'Acerca de REA',
+    title: 'Acerca de Bajatelo',
     version: 'Versión',
     description:
-      'REA es una aplicación de escritorio independiente para analizar URLs de vídeo, descargar contenido autorizado y convertir archivos multimedia locales.',
+      'Bajatelo es una aplicación de escritorio independiente para analizar URLs de vídeo, descargar contenido autorizado y convertir archivos multimedia locales.',
     creditsTitle: 'Software de terceros',
     credits:
-      'REA se apoya en el trabajo de los proyectos yt-dlp, FFmpeg, Tauri y Vue. Gracias a sus comunidades.',
+      'Bajatelo se apoya en el trabajo de los proyectos yt-dlp, FFmpeg, Tauri y Vue. Gracias a sus comunidades.',
     licenseTitle: 'Licencia',
     license:
       'Aplicación propia. Revisa la licencia de cada herramienta de terceros antes de redistribuir binarios.',
@@ -124,6 +148,11 @@ export const es = {
     statusTitle: 'Estado',
     versionTitle: 'Versión',
     pathTitle: 'Ruta',
+    guideTitle: 'Qué instalar si falta o queda obsoleta una herramienta',
+    guideIntro:
+      'La aplicación no redistribuye los motores (instalación del usuario). Lo degradado: sin yt-dlp no hay análisis ni descargas; sin FFmpeg la conversión queda limitada. Instálalos con el gestor “brew”/“winget” o el de tu distro y vuelve a comprobar aquí.',
+    incompatibleHint: 'La versión instalada no responde correctamente; actualízala',
+    allOk: 'Todas las dependencias están disponibles.',
   },
 } as const
 

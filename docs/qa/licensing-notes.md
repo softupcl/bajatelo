@@ -31,5 +31,5 @@
 
 ## 4. Pendiente antes de release público
 
-1. Generar **THIRD-PARTY-NOTICES** automático con los crates de Cargo + npm (cargo bundle license tools) — tarea de la fase de empaquetado año formal de release (post-MVP X-pendiente en backlog).
+1. ~~Generar THIRD-PARTY-NOTICES automático~~ → **resuelto en fase 7 (2026-10-19)**: `scripts/third-party-notices.py` genera `THIRD-PARTY-NOTICES.md` desde `Cargo.lock` + `package.json` (472 crates, 0 licencias desconocidas; sin peticiones de red).
 2. Firma de binarios/notarización macOS — fuera del MVP (requiere certificado del usuario).

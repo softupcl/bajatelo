@@ -7,6 +7,7 @@ import { errorText, toTaskError } from '../services/errors'
 import { formatBytes, formatDuration } from '../services/format'
 import EmptyState from '../components/EmptyState.vue'
 import type { LocalMediaInfo } from '../types/contracts'
+import { AUDIO_BITRATES, type AudioBitrate } from '../types/contracts'
 
 /** Ficha del archivo local (FFprobe real — RF-06). */
 const pickedPath = ref<string | null>(null)
@@ -16,11 +17,17 @@ const fileError = ref<{ text: string; detail?: string } | null>(null)
 
 /** Conversión en curso (máquina de estados real del gestor — C-20). */
 const format = ref<'mp4' | 'mp3'>('mp4')
+/** Tasa de bits de audio (kbps) para el MP3/AAC resultante. */
+const audioBitrate = ref<AudioBitrate>(128)
 const converting = ref(false)
 const activeTaskId = ref<string | null>(null)
 const taskState = ref<string | null>(null)
 const taskError = ref<string | null>(null)
 const taskDone = ref(false)
+const taskStopped = ref(false)
+/** Destino final confirmado por el evento `task://state` en `completed`. */
+const finalPath = ref<string | null>(null)
+const openError = ref(false)
 let unlistenState: (() => void) | null = null
 
 const infoLabels = t('conversion').infoLabels
@@ -55,6 +62,9 @@ async function chooseAndProbe(): Promise<void> {
   taskState.value = null
   taskError.value = null
   taskDone.value = false
+  taskStopped.value = false
+  finalPath.value = null
+  openError.value = false
   try {
     localInfo.value = await getBridge().probeLocalFile(path)
     pickedPath.value = path
@@ -73,6 +83,9 @@ async function beginConversion(): Promise<void> {
   if (!pickedPath.value || converting.value) return
   taskError.value = null
   taskDone.value = false
+  taskStopped.value = false
+  finalPath.value = null
+  openError.value = false
   const ext = format.value
   const proposed = await getBridge().pickSaveDestination(
     `${fileNameOf(pickedPath.value)}.re.${ext}`,
@@ -87,25 +100,31 @@ async function beginConversion(): Promise<void> {
       format.value,
       proposed,
       'ask',
+      format.value === 'mp3' ? String(audioBitrate.value) : null,
     )
     activeTaskId.value = taskId
     unlistenState?.()
     unlistenState = null
-    unlistenState = await listen<{ id: string; state: string }>('task://state', (event) => {
-      const payload = event.payload
-      if (payload.id !== taskId) return
-      taskState.value = payload.state
-      if (['completed', 'failed', 'cancelled'].includes(payload.state)) {
-        converting.value = false
-        taskDone.value = payload.state === 'completed'
-        if (payload.state === 'failed') {
-          // Mensaje del catálogo; detalle técnico disponible en Historial/logs (CAT-3).
-          taskError.value = errorText('EC-32')
+    unlistenState = await listen<{ id: string; state: string; destination: string | null }>(
+      'task://state',
+      (event) => {
+        const payload = event.payload
+        if (payload.id !== taskId) return
+        taskState.value = payload.state
+        if (['completed', 'failed', 'cancelled'].includes(payload.state)) {
+          converting.value = false
+          taskDone.value = payload.state === 'completed'
+          taskStopped.value = payload.state === 'cancelled'
+          finalPath.value = payload.destination
+          if (payload.state === 'failed') {
+            // Mensaje del catálogo; detalle técnico disponible en Historial/logs (CAT-3).
+            taskError.value = errorText('EC-32')
+          }
+          unlistenState?.()
+          unlistenState = null
         }
-        unlistenState?.()
-        unlistenState = null
-      }
-    })
+      },
+    )
   } catch (e) {
     const normalized = toTaskError(e)
     taskError.value = errorText(normalized?.code ?? 'EC-23')
@@ -120,6 +139,17 @@ function fileNameOf(path: string): string {
       .split('/')
       .pop() ?? 'conversion'
   return base || 'conversion'
+}
+
+/** Abre el archivo convertido o revela su carpeta (req. 10; fallo → EC-43). */
+async function openResult(reveal: boolean): Promise<void> {
+  if (!finalPath.value) return
+  openError.value = false
+  try {
+    await getBridge().openItem(finalPath.value, reveal)
+  } catch {
+    openError.value = true
+  }
 }
 
 async function stopConversion(): Promise<void> {
@@ -167,6 +197,14 @@ onBeforeUnmount(() => {
             <option value="mp3">MP3 (solo audio)</option>
           </select>
         </label>
+        <label v-if="format === 'mp3'">
+          <span class="field-label">{{ t('conversion').audioBitrate }}</span>
+          <select v-model.number="audioBitrate" :disabled="converting">
+            <option v-for="kbps in AUDIO_BITRATES" :key="kbps" :value="kbps">
+              {{ kbps }} kbps
+            </option>
+          </select>
+        </label>
         <button type="button" :disabled="converting" @click="beginConversion">
           {{
             converting
@@ -182,6 +220,14 @@ onBeforeUnmount(() => {
       </div>
 
       <p v-if="taskDone" role="status" class="ok-text">{{ t('conversion').done }}</p>
+      <div v-if="taskDone && finalPath" class="convert-row" role="group">
+        <button type="button" @click="openResult(false)">{{ t('conversion').openFile }}</button>
+        <button type="button" @click="openResult(true)">{{ t('conversion').openFolder }}</button>
+        <p v-if="openError" role="alert" class="error-text">{{ t('conversion').openFail }}</p>
+      </div>
+      <p v-if="taskStopped" role="status" aria-live="polite" class="lead">
+        {{ t('conversion').stopped }}
+      </p>
       <p v-if="taskError" role="alert" class="error-text">{{ taskError }}</p>
       <p v-if="converting" role="status" aria-live="polite" class="lead">
         {{ t('conversion').convertingNote }}

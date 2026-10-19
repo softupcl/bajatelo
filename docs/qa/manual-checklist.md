@@ -21,6 +21,8 @@
 | Pausa → Reanudar continúa los `.part` (Q3 del REA) | not-tested | valida la inferencia de la referencia (C7) |
 | Cancelación no deja procesos ni temporales residuales | not-tested | `pgrep yt-dlp` + revisar `/tmp/rea` |
 | Conversión local de un archivo del usuario (MP4→MP3) | ✅ equivalente automatizable (I2 real en verde) | el manual confirmará la UI |
+| **Botón Detener durante una conversión real** → estado `cancelled`, sin salida parcial y sin proceso FFmpeg residual | not-tested — verificar manualmente tras la corrección de la 2ª pasada | mecanismo verificado en pruebas (proceso POSIX + fixture corto); se recomienda confirmar la percepción en UI |
+| **Abrir archivo / Abrir carpeta** tras una conversión `completed` | not-tested — verificar manualmente | comando `open_item` (opener); requiere app nativa en ejecución |
 
 ## 3. Accesibilidad final con VoiceOver/lector de pantalla real
 

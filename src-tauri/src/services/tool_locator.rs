@@ -125,7 +125,7 @@ mod tests {
 
     #[tokio::test]
     async fn which_returns_none_for_unknown_program() {
-        let name = "rea-definitely-not-a-real-binary-8f3a";
+        let name = "bajatelo-definitely-not-a-real-binary-8f3a";
         assert!(which(name).await.is_none());
     }
 

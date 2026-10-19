@@ -28,10 +28,11 @@ pub async fn start_download(
     format: OutputFormat,
     destination: String,
     policy: ConflictPolicy,
+    audio_bitrate: Option<String>,
     manager: State<'_, Arc<TaskManager>>,
 ) -> Result<String, TaskError> {
     manager
-        .start_download(&task_id, &quality_id, format, &destination, policy)
+        .start_download(&task_id, &quality_id, format, &destination, policy, audio_bitrate.as_deref())
         .await
 }
 

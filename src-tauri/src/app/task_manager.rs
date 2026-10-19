@@ -123,6 +123,7 @@ impl TaskManager {
             qualities: Vec::new(),
             selected_quality_id: None,
             selected_format: None,
+            selected_audio_bitrate: None,
             destination: None,
             state: TaskState::Queued,
             progress: None,
@@ -178,6 +179,7 @@ impl TaskManager {
         format: OutputFormat,
         destination_base: &str,
         policy: ConflictPolicy,
+        audio_bitrate: Option<&str>,
     ) -> Result<String, TaskError> {
         let task = self
             .snapshot(task_id)
@@ -188,19 +190,26 @@ impl TaskManager {
                 Some(format!("la tarea está en estado {:?}", task.state)),
             ));
         }
-        let quality: QualityOption = task
-            .qualities
-            .iter()
-            .find(|q| q.id == quality_id)
-            .cloned()
-            .ok_or_else(|| TaskError::new(ErrorCode::Ec23, Some("calidad no disponible".into())))?;
+        // MP3 solo usa la pista de audio del motor: el combo de calidad de
+        // vídeo no aplica (selector oculto en la UI — RF-03 con el usuario).
+        let quality: Option<QualityOption> = if format == OutputFormat::Mp3 {
+            None
+        } else {
+            Some(
+                task.qualities
+                    .iter()
+                    .find(|q| q.id == quality_id)
+                    .cloned()
+                    .ok_or_else(|| TaskError::new(ErrorCode::Ec23, Some("calidad no disponible".into())))?,
+            )
+        };
 
         let extension = match format {
             OutputFormat::Original => {
-                if quality.container.is_empty() {
-                    "mp4".to_string()
-                } else {
-                    quality.container.clone()
+                let container = quality.as_ref().map(|q| q.container.clone());
+                match container {
+                    Some(c) if !c.is_empty() => c,
+                    _ => "mp4".to_string(),
                 }
             }
             OutputFormat::Mp4 => "mp4".to_string(),
@@ -217,13 +226,24 @@ impl TaskManager {
         };
         let final_destination = naming::resolve_destination(&filename, &extension, policy)?;
 
+        // Tasa de bits de audio: solo valores de la lista (CAT-2).
+        if let Some(b) = audio_bitrate {
+            if !ffmpeg::AUDIO_BITRATES.contains(&b) {
+                return Err(TaskError::new(
+                    ErrorCode::Ec23,
+                    Some(format!("tasa de bits de audio no permitida: {b}")),
+                ));
+            }
+        }
+
         {
             let mut tasks = self.tasks.lock().expect("tasks lock");
             let task = tasks
                 .get_mut(task_id)
                 .ok_or(TaskError::new(ErrorCode::Ec23, None))?;
-            task.selected_quality_id = Some(quality_id.to_string());
+            task.selected_quality_id = quality.as_ref().map(|q| q.id.clone());
             task.selected_format = Some(format);
+            task.selected_audio_bitrate = audio_bitrate.map(String::from);
             task.destination = Some(final_destination.clone());
         }
         self.set_state(task_id, TaskState::Downloading)?;
@@ -329,9 +349,19 @@ impl TaskManager {
         format: OutputFormat,
         destination_base: &str,
         policy: ConflictPolicy,
+        audio_bitrate: Option<&str>,
     ) -> Result<String, TaskError> {
         if !std::path::Path::new(input_path).is_file() {
             return Err(TaskError::new(ErrorCode::Ec30, Some("el archivo de entrada no existe".into())));
+        }
+        // Tasa de bits de audio: solo valores de la lista (CAT-2).
+        if let Some(b) = audio_bitrate {
+            if !ffmpeg::AUDIO_BITRATES.contains(&b) {
+                return Err(TaskError::new(
+                    ErrorCode::Ec23,
+                    Some(format!("tasa de bits de audio no permitida: {b}")),
+                ));
+            }
         }
         // Para conversión local: MP4 y MP3 (el "Original" es de descargas).
         let extension = match format {
@@ -372,6 +402,7 @@ impl TaskManager {
             input_path: Some(input_path.to_string()),
             selected_quality_id: None,
             selected_format: Some(format),
+            selected_audio_bitrate: audio_bitrate.map(String::from),
             destination: Some(final_destination),
             state: TaskState::Queued,
             progress: None,
@@ -398,6 +429,7 @@ impl TaskManager {
             let _ = manager.apply_failure(&task_id, &TaskError::new(ErrorCode::Ec23, Some("conversión sin configuración".into())));
             return;
         };
+        let audio_bitrate = task.selected_audio_bitrate.clone();
 
         // Cancelación durante la inspección inicial (T4).
         if manager.current_signal(&task_id) == MotorSignal::Cancelar {
@@ -441,9 +473,31 @@ impl TaskManager {
             }
         }
 
-        // Ejecución real + verificación final (T2/CA-06.1).
-        match ffmpeg::convert_download(Path::new(&input), Path::new(&destination), format).await {
+        // Ejecución real + verificación final (T2/CA-06.1). El verificador
+        // sondea la señal T4: cancelar durante la conversión mata FFmpeg (req. 5/9).
+        let manager2 = Arc::clone(&manager);
+        let runner_task_id = task_id.clone();
+        let cancel_check: crate::services::ffmpeg::CancelCheck = Box::new(move || {
+            manager2.current_signal(&runner_task_id) == MotorSignal::Cancelar
+        });
+        let convert_result = ffmpeg::convert_download_with_bitrate(
+            Path::new(&input),
+            Path::new(&destination),
+            format,
+            Some(cancel_check),
+            audio_bitrate.as_deref(),
+        )
+        .await;
+        match convert_result {
             Ok(()) => {
+                // Cancelación pedida justo al final (T4): la conoce la señal.
+                if manager.current_signal(&task_id) == MotorSignal::Cancelar {
+                    let _ = std::fs::remove_file(&destination); // salida parcial, no el original
+                    let _ = manager.set_state(&task_id, TaskState::Cancelled);
+                    let snap = manager.snapshot(&task_id).expect("tarea existente");
+                    manager.record_history(&snap);
+                    return;
+                }
                 let size = std::fs::metadata(&destination).map(|m| m.len()).unwrap_or(0);
                 {
                     let mut tasks = manager.tasks.lock().expect("tasks lock");
@@ -459,6 +513,14 @@ impl TaskManager {
                     }
                 }
                 let _ = manager.set_state(&task_id, TaskState::Completed);
+                let snap = manager.snapshot(&task_id).expect("tarea existente");
+                manager.record_history(&snap);
+            }
+            Err(e) if e.code == ErrorCode::Ec33 => {
+                // Cancelación confirmada durante la conversión (T4): limpia la
+                // salida parcial y registra el cese (EC-33, req. 5).
+                let _ = std::fs::remove_file(&destination);
+                let _ = manager.set_state(&task_id, TaskState::Cancelled);
                 let snap = manager.snapshot(&task_id).expect("tarea existente");
                 manager.record_history(&snap);
             }
@@ -526,20 +588,25 @@ impl TaskManager {
     /// señales de pausa/cancelación y conversión final con verificación real (T2).
     async fn run_download_inner(manager: Arc<Self>, task_id: &str) {
         let Some(task) = manager.snapshot(task_id) else { return };
-        let (Some(quality_id), Some(format), Some(destination)) = (
-            task.selected_quality_id.clone(),
-            task.selected_format,
-            task.destination.clone(),
-        ) else {
+        let (Some(format), Some(destination)) = (task.selected_format, task.destination.clone())
+        else {
             let e = TaskError::new(ErrorCode::Ec23, Some("tarea sin configuración de descarga".into()));
             let _ = manager.apply_failure(task_id, &e);
             return;
         };
-        let Some(quality) = task.qualities.iter().find(|q| q.id == quality_id).cloned() else {
+        let audio_bitrate = task.selected_audio_bitrate.clone();
+        // Con MP3 la calidad de vídeo no se configura (bestaudio); en MP4/Original
+        // es obligatoria (configurada en start_download).
+        let quality_for_spec = task
+            .qualities
+            .iter()
+            .find(|q| Some(&q.id) == task.selected_quality_id.as_ref())
+            .cloned();
+        if task.selected_quality_id.is_some() && quality_for_spec.is_none() {
             let e = TaskError::new(ErrorCode::Ec23, Some("la calidad configurada ya no existe".into()));
             let _ = manager.apply_failure(task_id, &e);
             return;
-        };
+        }
 
         let Some(yt_dlp_path) = tool_locator::which("yt-dlp").await else {
             let _ = manager.apply_failure(task_id, &TaskError::new(ErrorCode::Ec13, None));
@@ -548,18 +615,17 @@ impl TaskManager {
 
         // Plantilla temporal estable por tarea (REA §4.4): pausas/reintentos
         // continúan los mismos `.part`.
-        let temp_dir = std::env::temp_dir().join("rea");
+        let temp_dir = std::env::temp_dir().join("bajatelo");
         let _ = std::fs::create_dir_all(&temp_dir);
         let template = temp_dir
-            .join(format!("cg-yt-{}-%(id)s-%(format_id)s.%(ext)s", task.id))
+            .join(format!("bj-yt-{}-%(id)s-%(format_id)s.%(ext)s", task.id))
             .display()
             .to_string();
-        let temp_prefix = format!("cg-yt-{}", task.id);
+        let temp_prefix = format!("bj-yt-{}", task.id);
 
         let args = build_download_arguments(
             &template,
-            &quality.id,
-            quality.audio_format_id.as_deref(),
+            &motor_format_spec(format, quality_for_spec.as_ref()),
             &task.source_url.clone().unwrap_or_default(),
         );
 
@@ -741,9 +807,30 @@ impl TaskManager {
                     return;
                 }
 
-                match ffmpeg::convert_download(Path::new(&final_path), Path::new(&destination), format)
-                    .await
-                {
+                // La fase de conversión de una descarga también honra la señal
+                // T4 mientras FFmpeg corre (req. 5/9 del enunciado de conversión).
+                let manager2 = Arc::clone(&manager);
+                let runner_task_id = task_id.to_string();
+                let cancel_check: crate::services::ffmpeg::CancelCheck = Box::new(move || {
+                    manager2.current_signal(&runner_task_id) == MotorSignal::Cancelar
+                });
+                let result = ffmpeg::convert_download_with_bitrate(
+                    Path::new(&final_path),
+                    Path::new(&destination),
+                    format,
+                    Some(cancel_check),
+                    audio_bitrate.as_deref(),
+                )
+                .await;
+                match result {
+                    Ok(()) if manager.current_signal(task_id) == MotorSignal::Cancelar => {
+                        // Cancelación tardía: no declarar éxito.
+                        Self::cleanup_temps(&temp_dir, &temp_prefix);
+                        let _ = std::fs::remove_file(&destination);
+                        let _ = manager.set_state(task_id, TaskState::Cancelled);
+                        let task = manager.snapshot(task_id).expect("tarea existente");
+                        manager.record_history(&task);
+                    }
                     Ok(()) => {
                         Self::cleanup_temps(&temp_dir, &temp_prefix);
                         let size = std::fs::metadata(&destination).map(|m| m.len()).unwrap_or(0);
@@ -761,6 +848,14 @@ impl TaskManager {
                             }
                         }
                         let _ = manager.set_state(task_id, TaskState::Completed);
+                        let task = manager.snapshot(task_id).expect("tarea existente");
+                        manager.record_history(&task);
+                    }
+                    Err(e) if e.code == ErrorCode::Ec33 => {
+                        // Cancelación confirmada durante la conversión (T4).
+                        Self::cleanup_temps(&temp_dir, &temp_prefix);
+                        let _ = std::fs::remove_file(&destination);
+                        let _ = manager.set_state(task_id, TaskState::Cancelled);
                         let task = manager.snapshot(task_id).expect("tarea existente");
                         manager.record_history(&task);
                     }
@@ -912,14 +1007,9 @@ impl TaskManager {
 /// Construye los argumentos exactos de descarga (función pura — verificados por test).
 pub fn build_download_arguments(
     template: &str,
-    video_id: &str,
-    audio_id: Option<&str>,
+    format_spec: &str,
     url: &str,
 ) -> Vec<String> {
-    let fmt = match audio_id {
-        Some(audio) => format!("{video_id}+{audio}"),
-        None => video_id.to_string(),
-    };
     vec![
         "--newline".to_string(),
         "--no-playlist".to_string(),
@@ -927,9 +1017,27 @@ pub fn build_download_arguments(
         "-o".to_string(),
         template.to_string(),
         "-f".to_string(),
-        fmt,
+        format_spec.to_string(),
         url.to_string(),
     ]
+}
+
+/// Especificación de `-f` del motor según el formato de salida (REA F4.7):
+/// MP3 descarga SOLO la mejor pista de audio (sin vídeo que se tiraría).
+pub fn motor_format_spec(
+    format: OutputFormat,
+    quality: Option<&QualityOption>,
+) -> String {
+    match format {
+        OutputFormat::Mp3 => "bestaudio".to_string(),
+        OutputFormat::Original | OutputFormat::Mp4 => match quality {
+            Some(q) => match q.audio_format_id.as_deref() {
+                Some(audio) => format!("{}+{}", q.id, audio),
+                None => q.id.clone(),
+            },
+            None => "bestvideo".to_string(),
+        },
+    }
 }
 
 fn error_code_string(e: &TaskError) -> String {
@@ -969,10 +1077,10 @@ mod tests {
     /// REA §4/RF-04: los argumentos de descarga son exactos y de lista (RNF-01).
     #[test]
     fn download_arguments_are_exact() {
+        // Con vídeo+audio:
         let args = build_download_arguments(
-            "/tmp/cg-yt-x-%(id)s-%(format_id)s.%(ext)s",
-            "137",
-            Some("140"),
+            "/tmp/bj-yt-x-%(id)s-%(format_id)s.%(ext)s",
+            "137+140",
             "https://example.com/v",
         );
         assert_eq!(
@@ -982,31 +1090,54 @@ mod tests {
                 "--no-playlist",
                 "--no-mtime",
                 "-o",
-                "/tmp/cg-yt-x-%(id)s-%(format_id)s.%(ext)s",
+                "/tmp/bj-yt-x-%(id)s-%(format_id)s.%(ext)s",
                 "-f",
                 "137+140",
                 "https://example.com/v",
             ]
         );
         let args = build_download_arguments(
-            "/tmp/cg-yt-x-%(id)s-%(format_id)s.%(ext)s",
+            "/tmp/bj-yt-x-%(id)s-%(format_id)s.%(ext)s",
             "18",
-            None,
             "https://example.com/v",
         );
         assert_eq!(args[6], "18");
     }
 
+    /// MP3: solo la mejor pista de audio (sin vídeo) — RF-03 ajuste con el usuario.
+    #[test]
+    fn motor_format_spec_for_mp3_is_bestaudio_and_video_pairs_ids() {
+        use crate::models::media::QualityOption;
+
+        let quality = QualityOption {
+            id: "137".to_string(),
+            label: "1080p".to_string(),
+            height: Some(1080),
+            fps: Some(30),
+            container: "mp4".to_string(),
+            audio_only: false,
+            audio_format_id: Some("140".to_string()),
+            estimated_bytes: None,
+        };
+        assert_eq!(motor_format_spec(OutputFormat::Mp3, Some(&quality)), "bestaudio");
+        assert_eq!(motor_format_spec(OutputFormat::Mp4, Some(&quality)), "137+140");
+        assert_eq!(motor_format_spec(OutputFormat::Original, Some(&quality)), "137+140");
+        assert_eq!(motor_format_spec(OutputFormat::Mp4, None), "bestvideo");
+        // Con calidad solo-audio (sin emparejar): el id basta.
+        let audio_only = QualityOption { audio_format_id: None, ..quality };
+        assert_eq!(motor_format_spec(OutputFormat::Original, Some(&audio_only)), "137");
+    }
+
     #[test]
     fn temp_bytes_and_cleanup_respect_task_boundaries() {
-        let dummy = std::env::temp_dir().join("rea-taskcalc-test");
+        let dummy = std::env::temp_dir().join("bajatelo-taskcalc-test");
         std::fs::create_dir_all(&dummy).unwrap();
-        std::fs::write(dummy.join("cg-yt-T1-a.part"), vec![0; 8]).unwrap();
-        std::fs::write(dummy.join("cg-yt-T1-b.mp4"), vec![0; 4]).unwrap();
+        std::fs::write(dummy.join("bj-yt-T1-a.part"), vec![0; 8]).unwrap();
+        std::fs::write(dummy.join("bj-yt-T1-b.mp4"), vec![0; 4]).unwrap();
         std::fs::write(dummy.join("otro-archivo"), vec![0; 2]).unwrap();
-        assert_eq!(TaskManager::sum_temp_bytes(&dummy, "cg-yt-T1-"), 12);
-        TaskManager::cleanup_temps(&dummy, "cg-yt-T1-");
-        assert_eq!(TaskManager::sum_temp_bytes(&dummy, "cg-yt-T1-"), 0);
+        assert_eq!(TaskManager::sum_temp_bytes(&dummy, "bj-yt-T1-"), 12);
+        TaskManager::cleanup_temps(&dummy, "bj-yt-T1-");
+        assert_eq!(TaskManager::sum_temp_bytes(&dummy, "bj-yt-T1-"), 0);
         assert!(dummy.join("otro-archivo").exists()); // no borra lo ajeno
         let _ = std::fs::remove_file(dummy.join("otro-archivo"));
         let _ = std::fs::remove_dir(&dummy);

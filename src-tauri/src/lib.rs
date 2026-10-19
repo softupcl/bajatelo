@@ -16,7 +16,7 @@ pub fn run() {
             // Persistencia SQLite (D-07): se abre al arrancar y se comparte vía State.
             let data_dir = app.path().app_data_dir().expect("app data dir");
             let (store, outcome) =
-                persistence::Store::open(&data_dir.join("rea.db")).expect("open store");
+                persistence::Store::open(&data_dir.join("bajatelo.db")).expect("open store");
             if outcome != persistence::OpenOutcome::Clean {
                 // EC-41: la base se restauró o recreó. El aviso visible en la UI
                 // llegará con el canal de eventos; por ahora queda en el log local.
@@ -40,6 +40,7 @@ pub fn run() {
             commands::tasks::get_tasks,
             commands::convert::probe_local_file,
             commands::convert::start_conversion,
+            commands::convert::open_item,
             commands::prefs::get_preferences,
             commands::prefs::save_preferences,
             commands::history::history_list,

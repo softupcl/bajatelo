@@ -90,6 +90,8 @@ pub struct DownloadTask {
     pub qualities: Vec<QualityOption>,
     pub selected_quality_id: Option<String>,
     pub selected_format: Option<OutputFormat>,
+    /// Tasa de bits de audio objetivo (kbps) para MP3/AAC — null = 256k por defecto.
+    pub selected_audio_bitrate: Option<String>,
     pub destination: Option<String>,
     pub state: TaskState,
     pub progress: Option<ProgressInfo>,

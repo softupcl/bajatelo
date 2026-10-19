@@ -9,6 +9,7 @@ import type { HistoryEntry } from '../types/contracts'
 const entries = ref<HistoryEntry[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+const openError = ref(false)
 
 async function refresh(): Promise<void> {
   loading.value = true
@@ -19,6 +20,16 @@ async function refresh(): Promise<void> {
     error.value = String(e)
   } finally {
     loading.value = false
+  }
+}
+
+/** REA F5.6: abrir el archivo descargado o revelar su carpeta (fallo → EC-43). */
+async function openEntry(path: string, reveal: boolean): Promise<void> {
+  openError.value = false
+  try {
+    await getBridge().openItem(path, reveal)
+  } catch {
+    openError.value = true
   }
 }
 
@@ -78,10 +89,21 @@ onMounted(refresh)
           </p>
           <p class="entry-path mono">{{ entry.destinationPath }}</p>
         </div>
-        <button type="button" class="remove" @click="removeEntry(entry.id)">
-          {{ t('history').remove }}
-        </button>
+        <div class="entry-actions">
+          <template v-if="entry.status === 'completed' && entry.destinationPath">
+            <button type="button" @click="openEntry(entry.destinationPath, false)">
+              {{ t('downloads').openFile }}
+            </button>
+            <button type="button" @click="openEntry(entry.destinationPath, true)">
+              {{ t('downloads').openFolder }}
+            </button>
+          </template>
+          <button type="button" class="remove" @click="removeEntry(entry.id)">
+            {{ t('history').remove }}
+          </button>
+        </div>
       </article>
+      <p v-if="openError" role="alert" class="error-text">{{ t('conversion').openFail }}</p>
       <button type="button" class="clear" @click="clearAll">{{ t('history').clear }}</button>
     </div>
   </section>
@@ -122,6 +144,12 @@ onMounted(refresh)
   margin: 0;
   word-break: break-all;
 }
+.entry-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .remove,
 .clear {
   background: transparent;

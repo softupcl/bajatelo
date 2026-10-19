@@ -18,7 +18,7 @@ test('las cinco vistas son navegables con aria-current correcto', async ({ page 
     ['Convertir', /Convertir archivo local/],
     ['Historial', /Historial/],
     ['Configuración', /Configuración/],
-    ['Acerca de', /Acerca de REA/],
+    ['Acerca de', /Acerca de Bajatelo/],
   ]
   for (const [label, heading] of pairs) {
     await page.getByRole('button', { name: label }).click()
@@ -49,13 +49,59 @@ test('con el doble del puente el análisis muestra la ficha y las calidades del 
   // Calidades honestas derivadas del fixture (REA B2): 1080p (HD) incluida.
   await expect(card.locator('select').nth(1).locator('option')).toHaveCount(3)
   await expect(card.locator('select').nth(1).locator('option').first()).toContainText('1080p (HD)')
-  // Honesto: cola de descargas aún no integrada (D-12 pendiente de red real).
-  await expect(card.locator('role=note')).toContainText(/D-12/)
+  // El inicio de descarga es real via start_download (fase 6): botón habilitado.
+  const startButton = page.getByRole('button', { name: 'Descargar', exact: true })
+  await expect(startButton).toBeVisible()
+  await expect(startButton).toBeEnabled()
+  // MP4: solo "Calidad" de vídeo; sin selector de audio (fase 8, con el usuario).
+  const selects = card.locator('select')
+  await expect(selects).toHaveCount(2) // formato + calidad (vídeo)
+  await expect(card.getByText('Calidad de audio')).toHaveCount(0)
+})
+
+test('solo MP3 muestra la calidad de audio y oculta la calidad de vídeo', async ({ page }) => {
+  await page.locator('#video-url').fill('https://e2e.example.com/video')
+  await page.getByRole('button', { name: 'Analizar', exact: true }).click()
+  const card = page.locator('.media-card')
+  await card.locator('select').first().selectOption('mp3')
+
+  // Con MP3 el motor descarga bestaudio: la calidad de vídeo no aplica.
+  await expect(card.getByText('Calidad de audio (kbps)')).toHaveCount(1)
+  await expect(card.getByText('1080p (HD)')).toHaveCount(0)
+  await expect(card.locator('select')).toHaveCount(2) // formato + tasa de audio
+  const bitrateSelect = card.locator('select').nth(1)
+  await expect(bitrateSelect).toContainText('128 kbps')
+  const options = bitrateSelect.locator('option')
+  await expect(options).toHaveCount(6)
+  await expect(options.first()).toContainText('64 kbps')
+})
+
+test('el flujo de descarga crea una fila en la cola con estado, progreso y acciones', async ({
+  page,
+}) => {
+  await page.locator('#video-url').fill('https://e2e.example.com/video')
+  await page.getByRole('button', { name: 'Analizar', exact: true }).click()
+  await page.getByRole('button', { name: 'Descargar', exact: true }).click()
+
+  const queue = page.locator('.task-list')
+  const row = queue.getByRole('listitem')
+  await expect(row).toHaveCount(1)
+  await expect(row.locator('.task-title')).toContainText('Vídeo demo')
+  // Estado y progreso honestos del doble (no se fabrican datos fuera del modo e2e).
+  await expect(row.locator('.task-progress')).toContainText(/12,4 %/)
+  await expect(row.locator('.task-progress')).toContainText(/KiB/)
+  await expect(row.locator('.task-progress')).toContainText(/restan/)
+  // Acciones por estado (REA F5): pausar y detener en `downloading`.
+  await expect(row.getByRole('button', { name: 'Pausar' })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Detener' })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Reanudar' })).toHaveCount(0)
 })
 
 test('el historial muestra su estado vacío anunciado a lectores de pantalla', async ({ page }) => {
   await page.getByRole('button', { name: 'Historial' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'El historial está vacío' })).toBeVisible()
+  await expect(
+    page.getByRole('status').filter({ hasText: 'El historial está vacío' }),
+  ).toBeVisible()
 })
 
 test('el diagnóstico en modo E2E lista la herramientas använ con estados', async ({ page }) => {

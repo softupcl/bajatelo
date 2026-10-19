@@ -39,6 +39,47 @@ pub fn redact_url(url: &str) -> String {
     }
 }
 
+/// Redacta las credenciales de cada URL incrustada en un texto libre
+/// (detalles de error del motor — CAT-3/RNF-04), sin alterar el resto.
+/// Función pura y cubierta por tests.
+pub fn redact_credentials_in_text(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0usize;
+    while i < text.len() {
+        let Some(rel) = text[i..].find("://") else {
+            out.push_str(&text[i..]);
+            break;
+        };
+        let colon = i + rel;
+        // Solo cuenta como esquema si hay letras ASCII pegadas al "://" (hasta 10).
+        let mut scheme_start = colon;
+        let mut taken = 0usize;
+        while scheme_start > i
+            && taken < 10
+            && text.as_bytes()[scheme_start - 1].is_ascii_alphanumeric()
+        {
+            scheme_start -= 1;
+            taken += 1;
+        }
+        if taken == 0 {
+            // "://*" sin esquema: se copia tal cual y se avanza.
+            out.push_str(&text[i..colon + 3]);
+            i = colon + 3;
+            continue;
+        }
+        out.push_str(&text[i..scheme_start]);
+        // La URL termina en el primer separador (salto de línea, comilla, espacio…).
+        let scan_end = (colon + 3 + 320).min(text.len());
+        let url_end = text[colon + 3..scan_end]
+            .find(['\n', '\r', '\t', ' ', '"', '\'', '<', '>', ']'])
+            .map(|e| colon + 3 + e)
+            .unwrap_or(scan_end);
+        out.push_str(&redact_url(&text[scheme_start..url_end]));
+        i = url_end;
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,5 +104,30 @@ mod tests {
     fn invalid_url_never_panics_nor_leaks() {
         let out = redact_url("no es una url");
         assert_eq!(out, "[url inválida]");
+    }
+
+    #[test]
+    fn redacts_credentials_embedded_in_error_text() {
+        let src = "ERROR: failed to download https://user:secreto@example.com/v?id=1 after 3 tries";
+        let out = redact_credentials_in_text(src);
+        assert!(
+            !out.contains("secreto"),
+            "la credencial no puede quedar en el detalle: {out}"
+        );
+        assert!(out.contains("https://example.com/v?id=1"));
+        assert!(out.starts_with("ERROR: failed to download "));
+        assert!(out.ends_with("after 3 tries"));
+    }
+
+    #[test]
+    fn text_without_urls_is_untouched() {
+        let src = "ERROR: unable to download webpage: Connection refused";
+        assert_eq!(redact_credentials_in_text(src), src);
+    }
+
+    #[test]
+    fn scheme_like_separator_without_scheme_is_untouched() {
+        let src = "respuesta ://invalida sin esquema";
+        assert_eq!(redact_credentials_in_text(src), src);
     }
 }

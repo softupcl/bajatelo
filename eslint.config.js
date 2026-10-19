@@ -12,6 +12,12 @@ export default defineConfigWithVueTs(
   {
     rules: {
       'vue/multi-word-component-names': 'off',
+      // Los dobles de prueba implementan firmas completas del contrato Bridge;
+      // los parámetros no usados se marcan con prefijo '_' (p. ej. e2e-fake.ts).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
 )

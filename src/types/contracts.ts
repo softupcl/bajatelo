@@ -44,6 +44,40 @@ export interface MediaInfo {
   qualities: QualityOption[]
 }
 
+/** Resultado de `analyze_url` (RF-01/RF-02/D-12): la tarea ya está en la cola. */
+export interface AnalysisOutcome {
+  taskId: string
+  media: MediaInfo | null
+  error: TaskError | null
+}
+
+/** Tasas de bits de audio disponibles (kbps) — espejo de `AUDIO_BITRATES` de Rust. */
+export const AUDIO_BITRATES = [64, 96, 128, 192, 256, 320] as const
+export type AudioBitrate = (typeof AUDIO_BITRATES)[number]
+
+/** Tarea de la cola — espejo de `DownloadTask` de Rust (serialización camelCase). */
+export interface QueueTask {
+  id: string
+  kind: 'download' | 'convert'
+  seq: number
+  sourceUrl: string | null
+  portal: string | null
+  title: string | null
+  durationSec: number | null
+  inputPath: string | null
+  qualities: QualityOption[]
+  selectedQualityId: string | null
+  selectedFormat: OutputFormat | null
+  selectedAudioBitrate: string | null
+  destination: string | null
+  state: TaskState
+  progress: ProgressInfo | null
+  error: TaskError | null
+  retryCount: number
+  createdAt: string
+  updatedAt: string
+}
+
 /** Metadatos de un archivo local inspeccionado con FFprobe (RF-06). */
 export interface LocalMediaInfo {
   container: string | null

@@ -1,7 +1,7 @@
 /// Persistencia SQLite (D-07 / V-03) — docs/spec/data-model.md §3.
 /// - `rusqlite` con feature `bundled`: SQLite se compila con la app.
 /// - Journal mode WAL.
-/// - Apertura con `integrity_check`: si falla, intenta restaurar `rea.db.bak`;
+/// - Apertura con `integrity_check`: si falla, intenta restaurar `bajatelo.db.bak`;
 ///   si no hay backup válido, aísla el archivo corrupto y crea una base nueva
 ///   (error EC-41 para la UI cuando exista el canal de avisos).
 /// - Sin secretos: solo historial, preferencias y cola.
@@ -173,7 +173,7 @@ fn open_with_recovery(path: &Path) -> Result<(Connection, OpenOutcome), rusqlite
 
 fn backup_path_for(db_path: &Path) -> PathBuf {
     let file = db_path.file_name().map_or_else(
-        || "rea.db".to_string(),
+        || "bajatelo.db".to_string(),
         |f| format!("{}.bak", f.to_string_lossy()),
     );
     db_path.with_file_name(file)
@@ -257,7 +257,7 @@ mod tests {
     fn temp_db_path(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir();
         let unique = format!(
-            "rea-test-{}-{}-{}.db",
+            "bajatelo-test-{}-{}-{}.db",
             tag,
             std::process::id(),
             std::time::SystemTime::now()

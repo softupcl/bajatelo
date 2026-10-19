@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { t } from '../i18n'
 import { getBridge } from '../services/bridge'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -55,6 +55,49 @@ async function pickDestination(): Promise<void> {
   const dir = await getBridge().pickDirectory()
   if (dir) await update({ defaultDestination: dir })
 }
+
+/** SO para ajustar la guía instalable (sin dependencias externas). */
+const OS_KEY: 'mac' | 'win' | 'linux' = (() => {
+  if (typeof navigator === 'undefined') return 'mac'
+  const ua = navigator.userAgent.toLowerCase()
+  if (ua.includes('mac os')) return 'mac'
+  if (ua.includes('windows')) return 'win'
+  return 'linux'
+})()
+
+const COMANDOS: Record<ToolKind, Record<'mac' | 'win' | 'linux', string>> = {
+  ytdlp: {
+    mac: 'brew install yt-dlp (o: pipx install yt-dlp)',
+    win: 'winget install yt-dlp (o el instalador oficial de yt-dlp)',
+    linux: 'pipx install yt-dlp (o el paquete de tu distro)',
+  },
+  ffmpeg: {
+    mac: 'brew install ffmpeg',
+    win: 'winget install ffmpeg',
+    linux: 'sudo apt install ffmpeg (o el paquete de tu distro)',
+  },
+  ffprobe: {
+    mac: 'brew install ffmpeg (incluye ffprobe)',
+    win: 'winget install ffmpeg (incluye ffprobe)',
+    linux: 'sudo apt install ffmpeg (incluye ffprobe; o ffmpeg de tu distro)',
+  },
+}
+
+const needsGuide = computed(() => diagnostics.value.some((d) => d.status !== 'ok'))
+
+const guideSteps = computed(() =>
+  diagnostics.value
+    .filter((d) => d.status !== 'ok')
+    .map((d) => {
+      if (d.status === 'incompatible') {
+        return {
+          tool: d.tool,
+          text: `${t('diagnostics').incompatibleHint} — ${COMANDOS[d.tool][OS_KEY]}`,
+        }
+      }
+      return { tool: d.tool, text: COMANDOS[d.tool][OS_KEY] }
+    }),
+)
 </script>
 
 <template>
@@ -88,6 +131,18 @@ async function pickDestination(): Promise<void> {
         </tr>
       </tbody>
     </table>
+
+    <!-- Asistente de diagnóstico (RF-08): qué instalar y cómo, por herramienta y SO. -->
+    <div v-if="needsGuide" class="diag-guide" role="status" aria-live="polite">
+      <h3>{{ t('diagnostics').guideTitle }}</h3>
+      <p>{{ t('diagnostics').guideIntro }}</p>
+      <ul>
+        <li v-for="step in guideSteps" :key="step.tool">
+          <strong>{{ labelFor(step.tool) }}:</strong> {{ step.text }}
+        </li>
+      </ul>
+    </div>
+    <p v-else-if="diagnostics.length" role="status">{{ t('diagnostics').allOk }}</p>
 
     <h2>{{ t('settings').prefsTitle }}</h2>
     <p v-if="prefs" class="lead" role="status" aria-live="polite">
@@ -144,6 +199,16 @@ async function pickDestination(): Promise<void> {
 </template>
 
 <style scoped>
+.diag-guide {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 14px 18px;
+  margin: 14px 0 24px;
+}
+.diag-guide h3 {
+  margin: 0 0 6px;
+}
 .diag-table {
   width: 100%;
   border-collapse: collapse;
