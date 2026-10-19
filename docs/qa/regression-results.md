@@ -162,7 +162,16 @@ El usuario aprueba la opción C del diseño `docs/spec/engines-bundling.md` (FFm
 | 40 | Smoke del binario del DMG con motores embebidos | ✅ arranca (PID 37335) y se detiene limpio |
 | 41 | Workflow release.yml: paso `download pinned engines` por plataforma | escrito (win: BtbN `autobuild-2026-10-19-13-06` 9.0.2; linux idem; licencias en MANIFEST.txt) — se verificará en el próximo tag |
 
-Licencias (GPL de FFmpeg) (GPL de FFmpeg): oferta de código fuente enlazada en el draft del release + `licensing-notes.md` §1; yt-dlp Unlicense sin condiciones. Los binarios NO se comitean (`.gitignore`).
+Licencias (GPL de FFmpeg): oferta de código fuente enlazada en el draft del release + `licensing-notes.md` §1; yt-dlp Unlicense sin condiciones. Los binarios NO se comitean (`.gitignore`).
+
+## Registro — CI v0.1.1 con motores embebidos (2026-10-19, run 39331552878)
+
+Tras la corrección del run fallido 39322157746 (PowerShell no parseaba la sintaxis bash en el paso de motores): **3/3 jobs success**, y el paso `download pinned engines` verificó los hashes en runners:
+
+- yt-dlp 2026.08.19 verificado en las tres plataformas contra el `SHA2-256SUMS` oficial (`6667…` win · `0f19…` mac · `58162…` linux); ffmpeg/ffprobe extraídos de BtbN 9.0.2 (win/linux) y osxexperts (darwin), con su SHA real en los logs.
+- Assets del draft v0.1.1 (descargados, `file` OK): `x64-setup.exe` **108 MB** (NSIS con motores), DMG 81 MB, DEB 175 MB, AppImage 236 MB.
+- Versión 0.1.1 sincronizada en `tauri.conf.json`/`Cargo.toml`/`package.json`; releaseBody con la oferta de código GPL.
+- Condición honesta: ejecutar el `.exe` en un Windows real / DEB-AppImage en escritorio Linux sigue `not-tested` (aquí se verifican generación, integridad y tipo).
 | 22 | `python3 scripts/third-party-notices.py` | ✅ `THIRD-PARTY-NOTICES.md` con 472 crates licenciados (0 desconocidas) + JS de runtime; reproducible y sin red | passed |
 | 23 | Suite tras los cambios de fase 7 (asistente diagnóstico, i18n, README, ignores) | ✅ cargo 67/67 · Vitest 11/11 · Playwright 7/7 · lint/typecheck limpios | passed |
 
