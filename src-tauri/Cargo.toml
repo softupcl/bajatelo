@@ -1,6 +1,6 @@
 [package]
 name = "bajatelo"
-version = "0.1.0"
+version = "0.1.1"
 description = "Bajatelo — Descargas y conversión multimedia"
 authors = ["Softnext"]
 edition = "2024"

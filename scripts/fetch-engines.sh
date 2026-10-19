@@ -33,12 +33,16 @@ mkdir -p "${DEST}"
 dl() { curl -L --fail --silent --show-error --retry 3 -o "$2" "$1"; }
 
 sha256() {
-	python3 -c 'import hashlib,sys; f=open(sys.argv[1],"rb"); h=hashlib.sha256(); h.update(f.read()); print(h.hexdigest())' "$1"
+	local py
+	py="$(command -v python3 || command -v python)"
+	"$py" -c 'import hashlib,sys; f=open(sys.argv[1],"rb"); h=hashlib.sha256(); h.update(f.read()); print(h.hexdigest())' "$1"
 }
 
 extract() {
-	# extract <archivo> <destino> (zip / tar.xz — con python3)
-	python3 - "$1" "$2" <<'PY'
+	# extract <archivo> <destino> (zip / tar.xz — con python3|python)
+	local py
+	py="$(command -v python3 || command -v python)"
+	"$py" - "$1" "$2" <<'PY'
 import sys, zipfile, tarfile
 src, dst = sys.argv[1], sys.argv[2]
 if zipfile.is_zipfile(src):
@@ -57,7 +61,11 @@ local_ytdlp_expected() {
 }
 
 fetch_ytdlp() {
-	local asset="$1" file="${DEST}/$( [ "${2:-}" = win ] && echo 'yt-dlp' || echo 'yt-dlp' )"
+	# En Windows los binarios conservan su .exe (CreateProcess no ejecuta sin extensión).
+	local asset="$1"
+	local file_name="yt-dlp"
+	[ "${asset}" = "yt-dlp.exe" ] && file_name="yt-dlp.exe"
+	local file="${DEST}/${file_name}"
 	local expected
 	expected="$(local_ytdlp_expected "${asset}")"
 	[ -n "${expected}" ] || { echo "asset ${asset} sin hash oficial" >&2; exit 1; }
@@ -109,10 +117,14 @@ fetch_mac_static() {
 
 fetch_ffmpeg_bundle() {
 	# fetch_ffmpeg_bundle <url> <zip|tar.xz> — extrae ffmpeg+ffprobe de BtbN.
+	# NOTA Windows: los .exe se conservan con su extensión (los binarios nativos
+	# de Windows deben llamarse *.exe para poder ejecutarse).
 	local url="$1"
 	local kind="$2"
 	local archive="${TMP_ROOT}/ffmpeg-bundle.${kind}"
-	if [ -f "${DEST}/ffmpeg" ] && [ -f "${DEST}/ffprobe" ]; then
+	local suffix=""
+	[ "${kind}" = "zip" ] && suffix=".exe"
+	if [ -f "${DEST}/ffmpeg${suffix}" ] && [ -f "${DEST}/ffprobe${suffix}" ]; then
 		echo "ffmpeg/ffprobe ya existen (caché, sin re-descarga)"
 		return
 	fi
@@ -122,12 +134,11 @@ fetch_ffmpeg_bundle() {
 	root="$(find "${TMP_ROOT}/bundle-x" -maxdepth 1 -type d -name 'ffmpeg-*' | head -1)"
 	[ -n "${root}" ] || { echo "no se encontró la raíz ffmpeg-*" >&2; exit 1; }
 	for tool in ffmpeg ffprobe; do
-		local src_bin dest_local="${tool}"
+		local src_bin
 		src_bin="$(find "${root}/bin" -maxdepth 2 -type f -iname "${tool}*" ! -iname "*shared*" | sort | head -1)"
 		[ -n "${src_bin}" ] || { echo "no se encontró ${tool}" >&2; exit 1; }
-		mv "${src_bin}" "${DEST}/${dest_local}"
-		chmod +x "${DEST}/${dest_local}" 2>/dev/null || true
-		echo "${tool}: $(sha256 "${DEST}/${dest_local}")"
+		mv "${src_bin}" "${DEST}/${tool}${suffix}"
+		echo "${tool}${suffix}: $(sha256 "${DEST}/${tool}${suffix}")"
 	done
 }
 

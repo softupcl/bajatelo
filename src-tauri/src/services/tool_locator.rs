@@ -30,15 +30,14 @@ pub fn engine_candidate_dirs(exe_dir: &Path) -> Vec<PathBuf> {
     ]
 }
 
-/// Busca el ejecutable recorriendo `PATH` (sin depender del shell — RNF-01).
+/// Busca el ejecutable (embebido → datos de app → PATH, sin shell — RNF-01).
 pub async fn which(program: &str) -> Option<PathBuf> {
     // 1) Motores embebidos junto al ejecutable (prioridad sobre PATH — D-09/C).
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             for dir in engine_candidate_dirs(exe_dir) {
-                let candidate = dir.join(program);
-                if is_executable(&candidate) {
-                    return Some(candidate);
+                if let Some(found) = probe_names(&dir, program) {
+                    return Some(found);
                 }
             }
         }
@@ -46,21 +45,38 @@ pub async fn which(program: &str) -> Option<PathBuf> {
     // 2) Directorio de datos (yt-dlp actualizado por el usuario desde la app).
     if let Ok(dirs) = REENGINE_DIRS.read() {
         for dir in dirs.iter() {
-            let candidate = dir.join(program);
-            if is_executable(&candidate) {
-                return Some(candidate);
+            if let Some(found) = probe_names(dir, program) {
+                return Some(found);
             }
         }
     }
     // 3) PATH (SO del usuario).
-    let path_var = std::env::var_os("PATH")?;
-    let dirs = std::env::split_paths(&path_var);
-    for dir in dirs {
-        let candidate = dir.join(program);
-        if is_executable(&candidate) {
-            return Some(candidate);
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            if let Some(found) = probe_names(&dir, program) {
+                return Some(found);
+            }
         }
     }
+    None
+}
+
+/// Sonda de nombres: `program` y, en Windows, `program.exe` (los motores
+/// embebidos en Windows guardan su extensión nativa).
+fn probe_names(dir: &Path, program: &str) -> Option<PathBuf> {
+    let candidate = dir.join(program);
+    if is_executable(&candidate) {
+        return Some(candidate);
+    }
+    #[cfg(target_family = "windows")]
+    if !program.to_ascii_lowercase().ends_with(".exe") {
+        let with_exe = dir.join(format!("{program}.exe"));
+        if is_executable(&with_exe) {
+            return Some(with_exe);
+        }
+    }
+    #[cfg(not(target_family = "windows"))]
+    let _ = dir;
     None
 }
 /// Localiza un ejecutable (embebido → datos de app → PATH) y consulta su versión con timeout.

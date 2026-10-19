@@ -54,6 +54,7 @@ jobs:
         run: npm ci
 
       - name: download pinned engines (yt-dlp 2026.08.19 + FFmpeg 9.0.2 — D-09/C)
+        shell: bash
         run: |
           case "${{ matrix.platform }}" in
             macos-latest) PLATFORM="darwin-aarch64" ;;
@@ -69,7 +70,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'Bajatelo v__VERSION__'
-          releaseBody: 'Descarga el instalador para tu sistema. Sin yt-dlp ni FFmpeg incrustados: la app los detecta y guía su instalación (README).'
+          releaseBody: 'Descarga el instalador para tu sistema. Incluye los motores embebidos: yt-dlp 2026.08.19 (Unlicense) y FFmpeg 9.0.2/FFprobe estático (GPL, con su código fuente disponible en https://github.com/FFmpeg/FFmpeg/tree/n9.0.2).'
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
