@@ -1,0 +1,102 @@
+/* REA — estilos base (contraste AA, tema claro/oscuro según el sistema). */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-hover: #eef1f5;
+  --border: #d4d9e0;
+  --text: #1a1c1f;
+  --text-muted: #4c545e;
+  --accent: #0069b8;
+  --accent-strong: #004f8b;
+  --accent-soft: #e3f0fb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191c;
+    --surface: #1f2226;
+    --surface-hover: #2a2e33;
+    --border: #3a3f46;
+    --text: #e8eaed;
+    --text-muted: #a6adb5;
+    --accent: #4fb2ff;
+    --accent-strong: #7cc4ff;
+    --accent-soft: #1d3347;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: 1.45rem;
+  margin: 0 0 8px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 26px 0 8px;
+}
+
+.lead {
+  color: var(--text-muted);
+  margin: 0 0 18px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input[type='url'],
+input[type='text'],
+select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+
+button {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:not(:disabled):focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(1.06);
+}
