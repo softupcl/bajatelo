@@ -30,6 +30,8 @@ export interface QualityOption {
   fps: number | null
   container: string
   audioOnly: boolean
+  /** format_id del audio emparejado, necesario para `-f video+audio` (D-12). */
+  audioFormatId: string | null
   /** Tamaño estimado en bytes si el motor lo reporta; null si no. */
   estimatedBytes: number | null
 }
@@ -136,3 +138,31 @@ export interface Preferences {
   removeFinishedFromQueue: boolean
   locale: string
 }
+
+/** Todos los códigos del catálogo (para tests exhaustivos). */
+export const ERROR_CODES: ErrorCode[] = [
+  'EC-01',
+  'EC-02',
+  'EC-03',
+  'EC-10',
+  'EC-11',
+  'EC-12',
+  'EC-13',
+  'EC-20',
+  'EC-21',
+  'EC-22',
+  'EC-23',
+  'EC-24',
+  'EC-25',
+  'EC-26',
+  'EC-30',
+  'EC-31',
+  'EC-32',
+  'EC-33',
+  'EC-34',
+  'EC-35',
+  'EC-40',
+  'EC-41',
+  'EC-42',
+  'EC-43',
+]

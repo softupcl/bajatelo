@@ -29,11 +29,19 @@ export const es = {
     urlPlaceholder: 'https://…',
     analyze: 'Analizar',
     queueTitle: 'Descargas actuales',
-    notIntegrated:
-      'El análisis y la descarga todavía no están integrados (bloque 3 del backlog). Esta vista muestra el estado real: sin tareas.',
     emptyQueue: 'Aún no hay descargas',
     emptyQueueHint:
       'Cuando añadas una URL y empieces una descarga, verás aquí su progreso, velocidad y tiempo estimado.',
+  },
+  analysis: {
+    analyzing: 'Analizando…',
+    loading: 'Espere mientras se analiza el vídeo…',
+    unknownTitle: 'Vídeo sin título',
+    qualitiesAvailable: 'calidades disponibles',
+    format: 'Formato:',
+    quality: 'Calidad:',
+    downloadPending:
+      'La cola de descargas reales se integra en el bloque 3 del backlog (D-12). La selección mostrada refleja el análisis real.',
   },
   conversion: {
     title: 'Convertir archivo local',
@@ -49,7 +57,13 @@ export const es = {
     intro: 'Registro local de descargas y conversiones terminadas.',
     empty: 'El historial está vacío',
     emptyHint:
-      'Cada operación terminada (completada, fallida o cancelada) aparecerá aquí. Persistencia local pendiente (V-03).',
+      'Cada operación terminada (completada, fallida o cancelada) aparecerá aquí, guardada en la base de datos local.',
+    remove: 'Eliminar entrada',
+    clear: 'Vaciar historial',
+    confirmClear: '¿Seguro que quieres eliminar todas las entradas del historial?',
+    statusCompleted: 'Completada',
+    statusFailed: 'Fallida',
+    statusCancelled: 'Cancelada',
   },
   settings: {
     title: 'Configuración',
@@ -67,10 +81,11 @@ export const es = {
       ffprobe: 'FFprobe (inspección)',
     },
     prefsTitle: 'Preferencias',
-    prefsPending:
-      'La persistencia de preferencias llega con V-03. Los valores mostrados son los predeterminados.',
+    prefsSaved: 'Cambios guardados automáticamente en la base de datos local.',
+    saving: 'Guardando…',
     prefs: {
       defaultDestination: 'Carpeta de destino por defecto',
+      browse: 'Elegir…',
       conflictPolicy: 'Cuando el archivo de destino ya exista',
       conflictAsk: 'Preguntar qué hacer',
       conflictNumber: 'Numerar automáticamente (nombre-1, nombre-2…)',
