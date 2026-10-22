@@ -947,9 +947,9 @@ impl TaskManager {
         // se acepta sin error (la cancelación ganó, comportamiento válido).
         if from.can_transition_to(TaskState::Failed) {
             self.set_state(task_id, TaskState::Failed)?;
+            let task = self.snapshot(task_id).expect("tarea existente");
+            self.record_history(&task);
         }
-        let task = self.snapshot(task_id).expect("tarea existente");
-        self.record_history(&task);
         Ok(())
     }
 

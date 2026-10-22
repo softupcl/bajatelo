@@ -85,7 +85,20 @@ impl Store {
             "INSERT INTO history (id, kind, title, portal, source_url, format, quality,
                                    destination_path, final_size_bytes, status, error_code,
                                    started_at, finished_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+             ON CONFLICT(id) DO UPDATE SET
+               kind = excluded.kind,
+               title = excluded.title,
+               portal = excluded.portal,
+               source_url = excluded.source_url,
+               format = excluded.format,
+               quality = excluded.quality,
+               destination_path = excluded.destination_path,
+               final_size_bytes = excluded.final_size_bytes,
+               status = excluded.status,
+               error_code = excluded.error_code,
+               started_at = excluded.started_at,
+               finished_at = excluded.finished_at",
             params![
                 entry.id,
                 entry.kind,
@@ -326,6 +339,32 @@ mod tests {
 
         assert_eq!(store.history_clear().unwrap(), 1);
         assert_eq!(store.history_list().unwrap().len(), 0);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn history_insert_updates_existing_on_conflict() {
+        let path = temp_db_path("hist_conflict");
+        let (store, _) = Store::open(&path).unwrap();
+
+        let mut failed = sample_entry("task-1");
+        failed.status = "failed".to_string();
+        failed.error_code = Some("EC-20".to_string());
+        store.history_insert(&failed).unwrap();
+
+        let mut completed = sample_entry("task-1");
+        completed.status = "completed".to_string();
+        completed.error_code = None;
+        completed.final_size_bytes = Some(999999);
+        // Debe actualizar sin fallar con UNIQUE constraint failed: history.id
+        store.history_insert(&completed).unwrap();
+
+        let list = store.history_list().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, "task-1");
+        assert_eq!(list[0].status, "completed");
+        assert_eq!(list[0].error_code, None);
+        assert_eq!(list[0].final_size_bytes, Some(999999));
         let _ = std::fs::remove_file(&path);
     }
 
